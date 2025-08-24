@@ -114,7 +114,7 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			text := strings.TrimSpace(rawText)
 			if text != "" {
 				msg := MessageModel{Type: Human, Text: text}
-				t.bus.Publish(1, msg)
+				t.bus.Publish(EvtMessage, msg)
 				t.input.Reset()
 				t.input.SetValue("")
 			}
@@ -137,10 +137,10 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case Event:
 		evt := msg.evt
 		switch evt.Type {
-		case 0:
+		case EvtSystem:
 			text, _ := evt.Data.(string)
 			t.messages.AddMessageSystem(text)
-		case 1:
+		case EvtMessage:
 			if msgData, ok := evt.Data.(MessageModel); ok {
 				switch msgData.Type {
 				case System:

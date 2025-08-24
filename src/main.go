@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	// "time"
 )
 
 func main() {
@@ -26,7 +25,7 @@ func main() {
 
 	tui := NewTUI(bus, messages, logger)
 
-	es, unsub, err := bus.Subscribe(0, 64)
+	es, unsub, err := bus.Subscribe(EvtSystem, 64)
 	if err != nil {
 		return
 	}
@@ -39,7 +38,7 @@ func main() {
 	}()
 	defer unsub()
 
-	em, unsub2, err := bus.Subscribe(1, 64)
+	em, unsub2, err := bus.Subscribe(EvtMessage, 64)
 	if err != nil {
 		return
 	}
@@ -52,8 +51,8 @@ func main() {
 	}()
 	defer unsub2()
 
-	bus.Publish(0, "Default Main [0]")
-	bus.Publish(1, MessageModel{Type: Assistant, Text: "Default Main [1]"})
+	bus.Publish(EvtSystem, "Default Main [0]")
+	bus.Publish(EvtMessage, MessageModel{Type: Assistant, Text: "Default Main [1]"})
 
 	if _, err := tui.Run(ctx, cancel); err != nil {
 		logger.Error("Error starting TUI program", "error", err)
