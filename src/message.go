@@ -56,7 +56,7 @@ func (ml *MessageList) AddMessageHuman(text string) {
 		Time: time.Now(),
 	})
 
-	ml.command.IsCommand(text)
+	ml.command.IsCommandThenRun(text)
 }
 
 func (ml *MessageList) AddMessageAssistant(text string) {
