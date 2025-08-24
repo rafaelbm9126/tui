@@ -40,23 +40,20 @@ func main() {
 
 	tui := NewTUI(bus, messages, logger)
 
-	p, err := tui.Run(ctx, cancel)
-	if err != nil {
-		logger.Error("Error starting TUI program", "error", err)
-	}
-
 	go func() {
 		for evt := range es {
 			logger.Info("ES Received event:", "Data", evt.Data)
 			msg := Event{evt: evt}
-			p.Send(msg)
+			tui.Program().Send(msg)
 		}
 		for evt := range em {
 			logger.Info("EM Received event")
 			msg := Event{evt: evt}
-			p.Send(msg)
+			tui.Program().Send(msg)
 		}
 	}()
 
-	time.Sleep(100 * time.Millisecond)
+	if _, err := tui.Run(ctx, cancel); err != nil {
+		logger.Error("Error starting TUI program", "error", err)
+	}
 }
