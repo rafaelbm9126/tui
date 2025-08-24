@@ -19,15 +19,9 @@ func NewCommand(logger *slog.Logger, config *Config, bus *OptimizedBus) *Command
 	}
 }
 
-func (c *Command) IsCommand(text string) bool {
-	cmd := strings.TrimSpace(text)
-	if !strings.HasPrefix(cmd, "/") {
-		return false
-	}
-
-	// Procesa comandos
-	parts := strings.Fields(cmd)
-	if len(parts) == 0 {
+func (c *Command) IsCommandThenRun(text string) bool {
+	isCmd, parts := c.IsCommand(text)
+	if !isCmd || len(parts) == 0 {
 		return false
 	}
 
@@ -36,6 +30,21 @@ func (c *Command) IsCommand(text string) bool {
 
 	c.Execute(cmdName, args)
 	return true
+}
+
+func (c *Command) IsCommand(text string) (bool, []string) {
+	cmd := strings.TrimSpace(text)
+	if !strings.HasPrefix(cmd, "/") {
+		return false, nil
+	}
+
+	// Procesa comandos
+	parts := strings.Fields(cmd)
+	if len(parts) == 0 {
+		return false, nil
+	}
+
+	return true, parts
 }
 
 func (c *Command) Execute(cmd string, args []string) {

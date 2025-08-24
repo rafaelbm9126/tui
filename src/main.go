@@ -23,9 +23,6 @@ func main() {
 	command := NewCommand(logger, config, bus)
 
 	messages := NewMessageList(command)
-	messages.AddMessageSystem("# Hello")
-	messages.AddMessageHuman("Hello..!")
-	messages.AddMessageAssistant("Hello..!")
 
 	tui := NewTUI(bus, messages, logger)
 
@@ -37,8 +34,12 @@ func main() {
 	go bus.RuntimeCaller(tui, ev_ms, err_ms)
 	defer unsub_ms()
 
-	bus.Publish(EvtSystem, "Default Main [0]")
-	bus.Publish(EvtMessage, MessageModel{Type: Assistant, Text: "Default Main [1]"})
+	mgr := NewManager(ctx, logger)
+	mgr.Register(&EchoAgent{logger: logger, bus: bus, command: command}, true)
+	mgr.StartAll()
+	defer mgr.StopAll()
+
+	bus.Publish(EvtMessage, MessageModel{Type: System, Text: "Hello World..!"})
 
 	if _, err := tui.Run(ctx, cancel); err != nil {
 		logger.Error("Error starting TUI program", "error", err)
