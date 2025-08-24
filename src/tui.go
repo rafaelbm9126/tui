@@ -113,9 +113,8 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			rawText := t.input.Value()
 			text := strings.TrimSpace(rawText)
 			if text != "" {
-				t.logger.Info("Received event >> Update", "len", len(t.bus.subs))
 				msg := MessageModel{Type: Human, Text: text}
-				t.bus.Publish(EvtMessage, msg)
+				t.bus.Publish(1, msg)
 				t.input.Reset()
 				t.input.SetValue("")
 			}
@@ -138,14 +137,22 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case Event:
 		evt := msg.evt
 		switch evt.Type {
-		case EvtSystem:
+		case 0:
 			text, _ := evt.Data.(string)
 			t.messages.AddMessageSystem(text)
-		case EvtMessage:
+		case 1:
 			if msgData, ok := evt.Data.(MessageModel); ok {
-				t.messages.AddMessage(msgData)
+				switch msgData.Type {
+				case System:
+					t.messages.AddMessageSystem(msgData.Text)
+				case Human:
+					t.messages.AddMessageHuman(msgData.Text)
+				case Assistant:
+					t.messages.AddMessageAssistant(msgData.Text)
+				}
 			}
 		}
+
 		t.RenderBody()
 	}
 
