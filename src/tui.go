@@ -159,8 +159,13 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		evt := msg.evt
 		switch evt.Type {
 		case EvtSystem:
-			text, _ := evt.Data.(string)
-			t.messages.AddMessageSystem(text)
+			icmd, _ := evt.Data.(string)
+			switch icmd {
+			case "q", "quit":
+				cmds = append(cmds, tea.Quit)
+			default:
+				panic("Command Unknown")
+			}
 		case EvtMessage:
 			if msgData, ok := evt.Data.(MessageModel); ok {
 				switch msgData.Type {
@@ -173,9 +178,7 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-
 		t.RenderBody()
-
 	}
 
 	t.input, cmd = t.input.Update(msg)

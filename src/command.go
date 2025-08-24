@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"strings"
 )
@@ -9,13 +10,20 @@ type Command struct {
 	logger *slog.Logger
 	config *Config
 	bus    *OptimizedBus
+	mgr    *Manager
 }
 
-func NewCommand(logger *slog.Logger, config *Config, bus *OptimizedBus) *Command {
+func NewCommand(
+	logger *slog.Logger,
+	config *Config,
+	bus *OptimizedBus,
+	mgr *Manager,
+) *Command {
 	return &Command{
 		logger: logger,
 		config: config,
 		bus:    bus,
+		mgr:    mgr,
 	}
 }
 
@@ -52,9 +60,43 @@ func (c *Command) Execute(cmd string, args []string) {
 	_ = args
 
 	switch cmd {
-	case "help":
-		c.bus.Publish(EvtSystem, c.config.Text.En.Comand.Help)
+	case "quit", "q":
+		c.bus.Publish(EvtSystem, "quit")
+	case "help", "h":
+		message := MessageModel{Type: System, Text: c.config.Text["messages"]["commands"]["help"]}
+		c.bus.Publish(EvtMessage, message)
+	case "status", "st":
+		agents := c.mgr.ListAgents()
+
+		if len(agents) == 0 {
+			message := MessageModel{Type: System, Text: "No hay agentes registrados"}
+			c.bus.Publish(EvtMessage, message)
+			break
+		}
+		var sb strings.Builder
+		sb.WriteString("# Estado de agentes\n\n")
+		for _, ag := range agents {
+			sb.WriteString("- **")
+			sb.WriteString(ag.Name)
+			sb.WriteString("**: ")
+			sb.WriteString(ag.State)
+			if ag.Restarts > 0 {
+				sb.WriteString(" (")
+				sb.WriteString(fmt.Sprintf("%d", ag.Restarts))
+				sb.WriteString(" reinicios)")
+			}
+			if ag.LastErr != nil {
+				sb.WriteString("\n  _Error: ")
+				sb.WriteString(ag.LastErr.Error())
+				sb.WriteString("_")
+			}
+			sb.WriteString("\n")
+		}
+
+		message := MessageModel{Type: System, Text: sb.String()}
+		c.bus.Publish(EvtMessage, message)
 	default:
-		c.logger.Error("Unknown command", "command", cmd)
+		message := MessageModel{Type: System, Text: "**Command not found**"}
+		c.bus.Publish(EvtMessage, message)
 	}
 }

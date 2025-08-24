@@ -11,7 +11,9 @@ import (
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	config := LoadConfig()
+	config, _ := LoadConfig()
+
+	logger.Info("Config", "->", config)
 
 	rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -20,7 +22,9 @@ func main() {
 	bus := NewMemoryBus(logger)
 	defer bus.Close()
 
-	command := NewCommand(logger, config, bus)
+	mgr := NewManager(ctx, logger)
+
+	command := NewCommand(logger, config, bus, mgr)
 
 	messages := NewMessageList(command)
 
@@ -34,7 +38,6 @@ func main() {
 	go bus.RuntimeCaller(tui, ev_ms, err_ms)
 	defer unsub_ms()
 
-	mgr := NewManager(ctx, logger)
 	mgr.Register(&EchoAgent{logger: logger, bus: bus, command: command}, true)
 	mgr.StartAll()
 	defer mgr.StopAll()

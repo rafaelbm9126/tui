@@ -1,0 +1,13 @@
+config:
+  messages:
+    commands:
+      help: |
+        # Comandos disponibles
+
+        - `/help | /h` - muestra esta ayuda
+        - `/status | /st` - muestra estado de agentes
+        - `/start <agente>` - inicia un agente
+        - `/stop <agente>` - detiene un agente
+        - `/restart <agente>` - reinicia un agente
+        - `/md on|off` - activa/desactiva markdown
+        - `/quit | /q` - sale del programa

@@ -1,30 +1,25 @@
 package main
 
 import (
-	"encoding/json"
 	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Text struct {
-		En struct {
-			Comand struct {
-				Help string `json:"help"`
-			} `json:"comand"`
-		} `json:"en"`
-	} `json:"text"`
+	Text map[string]map[string]map[string]string `yaml:"config"`
 }
 
-func LoadConfig() *Config {
-	data, err := os.ReadFile("src/config.json")
+func LoadConfig() (*Config, string) {
+	data, err := os.ReadFile("src/config.yaml")
 	if err != nil {
 		panic(err)
 	}
 
 	var cfg Config
-	if err := json.Unmarshal(data, &cfg); err != nil {
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		panic(err)
 	}
 
-	return &cfg
+	return &cfg, string(data)
 }
