@@ -11,17 +11,21 @@ import (
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
+	config := LoadConfig()
+
 	rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	ctx, cancel := context.WithCancel(rootCtx)
 
-	messages := NewMessageList()
+	bus := NewMemoryBus(logger)
+	defer bus.Close()
+
+	command := NewCommand(logger, config, bus)
+
+	messages := NewMessageList(command)
 	messages.AddMessageSystem("# Hello")
 	messages.AddMessageHuman("Hello..!")
 	messages.AddMessageAssistant("Hello..!")
-
-	bus := NewMemoryBus(logger)
-	defer bus.Close()
 
 	tui := NewTUI(bus, messages, logger)
 

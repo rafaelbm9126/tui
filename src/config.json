@@ -1,0 +1,9 @@
+{
+  "text": {
+    "en": {
+      "comand": {
+        "help": "# Comandos disponibles\n\n- `/help` - muestra esta ayuda\n- `/status` - muestra estado de agentes\n- `/start <agente>` - inicia un agente\n- `/stop <agente>` - detiene un agente\n- `/restart <agente>` - reinicia un agente\n- `/md on|off` - activa/desactiva markdown\n- `/quit` - sale del programa"
+      }
+    }
+  }
+}

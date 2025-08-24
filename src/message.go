@@ -31,11 +31,13 @@ type MessageModel struct {
 
 type MessageList struct {
 	Messages []MessageModel
+	command  *Command
 }
 
-func NewMessageList() *MessageList {
+func NewMessageList(command *Command) *MessageList {
 	return &MessageList{
 		Messages: []MessageModel{},
+		command:  command,
 	}
 }
 
@@ -53,6 +55,8 @@ func (ml *MessageList) AddMessageHuman(text string) {
 		Text: text,
 		Time: time.Now(),
 	})
+
+	ml.command.IsCommand(text)
 }
 
 func (ml *MessageList) AddMessageAssistant(text string) {
