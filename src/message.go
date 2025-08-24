@@ -47,6 +47,10 @@ func (ml *MessageList) AddMessageSystem(text string) {
 	})
 }
 
+func (ml *MessageList) AddMessage(msg MessageModel) {
+	ml.Messages = append(ml.Messages, msg)
+}
+
 func (ml *MessageList) AddMessageHuman(text string) {
 	ml.Messages = append(ml.Messages, MessageModel{
 		Type: Human,

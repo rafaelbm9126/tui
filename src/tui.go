@@ -18,6 +18,8 @@ type TUI struct {
 	viewport viewport.Model
 	input    textinput.Model
 
+	program *tea.Program
+
 	logger *slog.Logger
 
 	messages *MessageList
@@ -85,6 +87,8 @@ func NewTUI(bus *OptimizedBus, messages *MessageList, logger *slog.Logger) *TUI 
 		Padding(0, 1).
 		Margin(0, 5, 0, 5)
 
+	t.program = tea.NewProgram(t, tea.WithAltScreen())
+
 	return t
 }
 
@@ -110,8 +114,8 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			text := strings.TrimSpace(rawText)
 			if text != "" {
 				t.logger.Info("Received event >> Update", "len", len(t.bus.subs))
-				t.bus.Publish(EvtMessage, text)
-				t.messages.AddMessageHuman(text)
+				msg := MessageModel{Type: Human, Text: text}
+				t.bus.Publish(EvtMessage, msg)
 				t.input.Reset()
 				t.input.SetValue("")
 			}
@@ -133,12 +137,14 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case Event:
 		evt := msg.evt
-		text, _ := evt.Data.(string)
 		switch evt.Type {
 		case EvtSystem:
+			text, _ := evt.Data.(string)
 			t.messages.AddMessageSystem(text)
 		case EvtMessage:
-			t.messages.AddMessageAssistant(text)
+			if msgData, ok := evt.Data.(MessageModel); ok {
+				t.messages.AddMessage(msgData)
+			}
 		}
 		t.RenderBody()
 	}
@@ -174,24 +180,22 @@ func (t *TUI) View() string {
 }
 
 func (t *TUI) Run(ctx context.Context, cancel context.CancelFunc) (*tea.Program, error) {
-	p := tea.NewProgram(t, tea.WithAltScreen())
-
 	go func() {
 		<-ctx.Done()
-		p.Quit()
+		t.program.Quit()
 	}()
 
-	_, err := p.Run()
-
-	// if cancel != nil {
-	// 	cancel()
-	// }
+	_, err := t.program.Run()
 
 	if ctx.Err() != nil {
-		return p, ctx.Err()
+		return t.program, ctx.Err()
 	}
 
-	return p, err
+	return t.program, err
+}
+
+func (t *TUI) Program() *tea.Program {
+	return t.program
 }
 
 func (t *TUI) RenderBody() {
