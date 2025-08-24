@@ -9,9 +9,9 @@ import (
 
 // Bus define la interfaz para el sistema de comunicación pub/sub
 type Bus interface {
-	Publish(evtype EventType, data any)
-	Subscribe(evtype EventType, buf int) (<-chan Event, func(), error)
-	Length(evtype EventType) int
+	Publish(evtype int, data any)
+	Subscribe(evtype int, buf int) (<-chan Event, func(), error)
+	Length(evtype int) int
 	Close()
 }
 
@@ -20,7 +20,7 @@ type OptimizedBus struct {
 	mu     sync.RWMutex
 	closed bool
 	nextID int
-	subs   map[EventType]map[int]*sub
+	subs   map[int]map[int]*sub
 	logger *slog.Logger
 }
 
@@ -35,13 +35,13 @@ type sub struct {
 // NewMemoryBus crea una nueva instancia de MemoryBus
 func NewMemoryBus(logger *slog.Logger) *OptimizedBus {
 	return &OptimizedBus{
-		subs:   make(map[EventType]map[int]*sub),
+		subs:   make(map[int]map[int]*sub),
 		logger: logger,
 	}
 }
 
 // Publish publica un evento en el bus
-func (b *OptimizedBus) Publish(evtype EventType, data any) {
+func (b *OptimizedBus) Publish(evtype int, data any) {
 	evt := EventModel{Type: evtype, Data: data, Time: time.Now()}
 
 	b.mu.RLock()
@@ -56,8 +56,6 @@ func (b *OptimizedBus) Publish(evtype EventType, data any) {
 		}
 	}
 	b.mu.RUnlock()
-
-	b.logger.Info("Received event >> ", "len", data)
 
 	for _, s := range targets {
 		select {
@@ -76,7 +74,7 @@ func (b *OptimizedBus) Publish(evtype EventType, data any) {
 }
 
 // Subscribe suscribe a un evento en el bus
-func (b *OptimizedBus) Subscribe(evtype EventType, buf int) (<-chan EventModel, func(), error) {
+func (b *OptimizedBus) Subscribe(evtype int, buf int) (<-chan EventModel, func(), error) {
 	if buf <= 0 {
 		buf = 64
 	}
@@ -119,7 +117,7 @@ func (b *OptimizedBus) Subscribe(evtype EventType, buf int) (<-chan EventModel, 
 	return s.ch, unsub, nil
 }
 
-func (b *OptimizedBus) Length(evtype EventType) int {
+func (b *OptimizedBus) Length(evtype int) int {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	if m, ok := b.subs[evtype]; ok {

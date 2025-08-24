@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
+	// "time"
 )
 
 func main() {
@@ -24,34 +24,36 @@ func main() {
 	bus := NewMemoryBus(logger)
 	defer bus.Close()
 
-	es, unsub, err := bus.Subscribe(EvtSystem, 64)
-	if err != nil {
-		return
-	}
-	defer unsub()
-
-	em, unsub2, err := bus.Subscribe(EvtMessage, 64)
-	if err != nil {
-		return
-	}
-	defer unsub2()
-
-	bus.Publish(EvtSystem, "Default")
-
 	tui := NewTUI(bus, messages, logger)
 
+	es, unsub, err := bus.Subscribe(0, 64)
+	if err != nil {
+		return
+	}
 	go func() {
 		for evt := range es {
 			logger.Info("ES Received event:", "Data", evt.Data)
 			msg := Event{evt: evt}
 			tui.Program().Send(msg)
 		}
+	}()
+	defer unsub()
+
+	em, unsub2, err := bus.Subscribe(1, 64)
+	if err != nil {
+		return
+	}
+	go func() {
 		for evt := range em {
 			logger.Info("EM Received event")
 			msg := Event{evt: evt}
 			tui.Program().Send(msg)
 		}
 	}()
+	defer unsub2()
+
+	bus.Publish(0, "Default Main [0]")
+	bus.Publish(1, MessageModel{Type: Assistant, Text: "Default Main [1]"})
 
 	if _, err := tui.Run(ctx, cancel); err != nil {
 		logger.Error("Error starting TUI program", "error", err)

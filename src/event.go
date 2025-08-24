@@ -4,15 +4,15 @@ import (
 	"time"
 )
 
-type EventType int
+// type EventType int
 
-const (
-	EvtSystem EventType = iota
-	EvtMessage
-)
+// const (
+// 	EvtSystem EventType = iota
+// 	EvtMessage
+// )
 
 type EventModel struct {
-	Type EventType
+	Type int
 	Data any
 	Time time.Time
 }
