@@ -104,6 +104,7 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			cmds = append(cmds, tea.Quit)
+
 		case tea.KeyEnter:
 			rawText := t.input.Value()
 			text := strings.TrimSpace(rawText)
