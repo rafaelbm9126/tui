@@ -13,25 +13,20 @@ import (
 )
 
 type TUI struct {
-	width    int
-	height   int
-	viewport viewport.Model
-	input    textinput.Model
-
-	program *tea.Program
-
-	logger *slog.Logger
-
-	messages *MessageList
-
-	bus *OptimizedBus
-
-	// Markdown
+	width       int
+	height      int
+	viewport    viewport.Model
+	input       textinput.Model
+	program     *tea.Program
+	logger      *slog.Logger
+	messages    *MessageList
+	bus         *OptimizedBus
 	mdEnabled   bool
 	mdRenderer  *glamour.TermRenderer
 	mdWrapWidth int // ancho con el que se construyó el renderer
-
-	styles struct {
+	history     []string
+	histIndex   int
+	styles      struct {
 		header         lipgloss.Style
 		labelSystem    lipgloss.Style
 		labelHuman     lipgloss.Style
@@ -117,6 +112,31 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				t.bus.Publish(EvtMessage, msg)
 				t.input.Reset()
 				t.input.SetValue("")
+
+				if len(t.history) == 0 || t.history[len(t.history)-1] != text {
+					t.history = append(t.history, text)
+				}
+				t.histIndex = len(t.history)
+			}
+
+		case tea.KeyUp:
+			// Navega por el historial hacia arriba
+			if t.histIndex > 0 {
+				t.histIndex--
+				t.input.SetValue(t.history[t.histIndex])
+				t.input.CursorEnd()
+			}
+
+		case tea.KeyDown:
+			// Navega por el historial hacia abajo
+			if t.histIndex < len(t.history) {
+				t.histIndex++
+				if t.histIndex == len(t.history) {
+					t.input.SetValue("")
+				} else {
+					t.input.SetValue(t.history[t.histIndex])
+				}
+				t.input.CursorEnd()
 			}
 		}
 
@@ -154,6 +174,7 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		t.RenderBody()
+
 	}
 
 	t.input, cmd = t.input.Update(msg)

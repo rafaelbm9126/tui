@@ -12,6 +12,7 @@ type Bus interface {
 	Publish(evtype EventType, data any)
 	Subscribe(evtype EventType, buf int) (<-chan Event, func(), error)
 	Length(evtype EventType) int
+	RuntimeCaller(tui *TUI, evt <-chan EventModel, unsub func(), err error)
 	Close()
 }
 
@@ -149,4 +150,16 @@ func (b *OptimizedBus) Close() {
 	for _, s := range allSubs {
 		close(s.stop)
 	}
+}
+
+func (b *OptimizedBus) RuntimeCaller(tui *TUI, evt <-chan EventModel, err error) {
+	if err != nil {
+		return
+	}
+	go func() {
+		for evt := range evt {
+			msg := Event{evt: evt}
+			tui.Program().Send(msg)
+		}
+	}()
 }

@@ -25,31 +25,13 @@ func main() {
 
 	tui := NewTUI(bus, messages, logger)
 
-	es, unsub, err := bus.Subscribe(EvtSystem, 64)
-	if err != nil {
-		return
-	}
-	go func() {
-		for evt := range es {
-			logger.Info("ES Received event:", "Data", evt.Data)
-			msg := Event{evt: evt}
-			tui.Program().Send(msg)
-		}
-	}()
-	defer unsub()
+	ev_sy, unsub_sy, err_sy := bus.Subscribe(EvtSystem, 64)
+	go bus.RuntimeCaller(tui, ev_sy, err_sy)
+	defer unsub_sy()
 
-	em, unsub2, err := bus.Subscribe(EvtMessage, 64)
-	if err != nil {
-		return
-	}
-	go func() {
-		for evt := range em {
-			logger.Info("EM Received event")
-			msg := Event{evt: evt}
-			tui.Program().Send(msg)
-		}
-	}()
-	defer unsub2()
+	ev_ms, unsub_ms, err_ms := bus.Subscribe(EvtMessage, 64)
+	go bus.RuntimeCaller(tui, ev_ms, err_ms)
+	defer unsub_ms()
 
 	bus.Publish(EvtSystem, "Default Main [0]")
 	bus.Publish(EvtMessage, MessageModel{Type: Assistant, Text: "Default Main [1]"})
