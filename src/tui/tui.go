@@ -1,4 +1,4 @@
-package main
+package tui
 
 import (
 	"context"
@@ -10,6 +10,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
+
+	"main/src/bus"
+	"main/src/event"
+	"main/src/message"
 )
 
 type TUI struct {
@@ -174,7 +178,7 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case Human:
 					t.messages.AddMessageHuman(msgData.Text)
 				case Assistant:
-					t.messages.AddMessageAssistant(msgData.Text)
+					t.messages.AddMessageAssistant(msgData.Text, msgData.From)
 				}
 			}
 		}

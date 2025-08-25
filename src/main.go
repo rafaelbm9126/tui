@@ -1,19 +1,28 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
+	"main/src/agents"
+	"main/src/bus"
+	"main/src/command"
+	"main/src/config"
+	"main/src/event"
+	"main/src/logger"
+	"main/src/manager"
+	"main/src/message"
+	"main/src/tui"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	config, _ := LoadConfig()
-
-	logger.Info("Config", "->", config)
+	config := LoadConfig()
 
 	rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -39,7 +48,8 @@ func main() {
 	defer unsub_ms()
 
 	mgr.Register(&EchoAgent{logger: logger, bus: bus, command: command}, true)
-	mgr.StartAll()
+	mgr.Register(&AAgent{logger: logger, bus: bus, command: command}, true)
+	// mgr.StartAll()
 	defer mgr.StopAll()
 
 	bus.Publish(EvtMessage, MessageModel{Type: System, Text: "Hello World..!"})
@@ -47,4 +57,8 @@ func main() {
 	if _, err := tui.Run(ctx, cancel); err != nil {
 		logger.Error("Error starting TUI program", "error", err)
 	}
+
+	defer func() {
+		os.Stdout.Write(buf.Bytes())
+	}()
 }

@@ -1,4 +1,4 @@
-package main
+package agents
 
 import (
 	"context"
@@ -34,7 +34,11 @@ func (a *EchoAgent) Start(ctx context.Context) error {
 				//
 			case Human:
 				if ok, _ := a.command.IsCommand(msg.Text); !ok {
-					message := MessageModel{Type: Assistant, Text: "Echo Human: " + msg.Text}
+					message := MessageModel{
+						Type: Assistant,
+						From: a.Name(),
+						Text: "Echo Human: " + msg.Text,
+					}
 					a.bus.Publish(EvtMessage, message)
 				}
 			case Assistant:

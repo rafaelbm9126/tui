@@ -1,9 +1,13 @@
-package main
+package command
 
 import (
 	"fmt"
 	"log/slog"
 	"strings"
+
+	"main/src/bus"
+	"main/src/config"
+	"main/src/manager"
 )
 
 type Command struct {
@@ -62,9 +66,11 @@ func (c *Command) Execute(cmd string, args []string) {
 	switch cmd {
 	case "quit", "q":
 		c.bus.Publish(EvtSystem, "quit")
+
 	case "help", "h":
 		message := MessageModel{Type: System, Text: c.config.Text["messages"]["commands"]["help"]}
 		c.bus.Publish(EvtMessage, message)
+
 	case "status", "st":
 		agents := c.mgr.ListAgents()
 
@@ -95,6 +101,54 @@ func (c *Command) Execute(cmd string, args []string) {
 
 		message := MessageModel{Type: System, Text: sb.String()}
 		c.bus.Publish(EvtMessage, message)
+
+	case "start":
+		if len(args) < 1 {
+			message := MessageModel{Type: System, Text: "Uso: /start <agente>"}
+			c.bus.Publish(EvtMessage, message)
+			break
+		}
+		name := args[0]
+		message := MessageModel{Type: System}
+		err := c.mgr.StartAgent(name)
+		if err != nil {
+			message.Text = "Error al iniciar " + name + ": " + err.Error()
+		} else {
+			message.Text = "Iniciando " + name
+		}
+		c.bus.Publish(EvtMessage, message)
+
+	case "stop":
+		if len(args) < 1 {
+			message := MessageModel{Type: System, Text: "Uso: /stop <agente>"}
+			c.bus.Publish(EvtMessage, message)
+			break
+		}
+		name := args[0]
+		message := MessageModel{Type: System}
+		err := c.mgr.StopAgent(name)
+		if err != nil {
+			message.Text = "Error al detener " + name + ": " + err.Error()
+		} else {
+			message.Text = "Deteniendo " + name
+		}
+		c.bus.Publish(EvtMessage, message)
+
+	case "restart":
+		if len(args) < 1 {
+			message := MessageModel{Type: System, Text: "Uso: /restart <agente>"}
+			c.bus.Publish(EvtMessage, message)
+			break
+		}
+		name := args[0]
+		message := MessageModel{Type: System}
+		err := c.mgr.RestartAgent(name)
+		if err != nil {
+			message.Text = "Error al reiniciar " + name + ": " + err.Error()
+		} else {
+			message.Text = "Reiniciando " + name
+		}
+
 	default:
 		message := MessageModel{Type: System, Text: "**Command not found**"}
 		c.bus.Publish(EvtMessage, message)

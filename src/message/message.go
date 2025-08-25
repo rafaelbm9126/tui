@@ -1,10 +1,13 @@
-package main
+package message
 
 import (
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"main/src/command"
+	"main/src/tui"
 )
 
 type MessageType int
@@ -25,6 +28,7 @@ func (d MessageType) String() string {
 
 type MessageModel struct {
 	Type MessageType
+	From string
 	Text string
 	Time time.Time
 }
@@ -59,9 +63,10 @@ func (ml *MessageList) AddMessageHuman(text string) {
 	ml.command.IsCommandThenRun(text)
 }
 
-func (ml *MessageList) AddMessageAssistant(text string) {
+func (ml *MessageList) AddMessageAssistant(text string, from string) {
 	ml.Messages = append(ml.Messages, MessageModel{
 		Type: Assistant,
+		From: from,
 		Text: text,
 		Time: time.Now(),
 	})
@@ -76,9 +81,6 @@ func (ml *MessageList) PrePrintMessages(t *TUI) string {
 		// Message Header //
 		var label lipgloss.Style
 		header := message.Type.String()
-		if !message.Time.IsZero() {
-			header += " - " + message.Time.Format("15:04:05")
-		}
 		switch message.Type {
 		case System:
 			label = t.styles.labelSystem
@@ -86,6 +88,10 @@ func (ml *MessageList) PrePrintMessages(t *TUI) string {
 			label = t.styles.labelHuman
 		case Assistant:
 			label = t.styles.labelAssistant
+			header += " [" + message.From + "]"
+		}
+		if !message.Time.IsZero() {
+			header += " - " + message.Time.Format("15:04:05")
 		}
 		sb.WriteString(label.Render(header) + "\n")
 		// [End] Message Header //

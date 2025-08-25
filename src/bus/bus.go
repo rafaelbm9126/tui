@@ -1,10 +1,13 @@
-package main
+package bus
 
 import (
 	"errors"
 	"log/slog"
 	"sync"
 	"time"
+
+	"main/src/event"
+	"main/src/tui"
 )
 
 // Bus define la interfaz para el sistema de comunicación pub/sub

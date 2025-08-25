@@ -1,8 +1,9 @@
-package main
+package config
 
 import (
 	"os"
 
+	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v3"
 )
 
@@ -10,7 +11,16 @@ type Config struct {
 	Text map[string]map[string]map[string]string `yaml:"config"`
 }
 
-func LoadConfig() (*Config, string) {
+func GetEnv() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		panic(err)
+	}
+}
+
+func LoadConfig() *Config {
+	GetEnv()
+
 	data, err := os.ReadFile("src/config.yaml")
 	if err != nil {
 		panic(err)
@@ -21,5 +31,5 @@ func LoadConfig() (*Config, string) {
 		panic(err)
 	}
 
-	return &cfg, string(data)
+	return &cfg
 }

@@ -1,4 +1,4 @@
-package main
+package manager
 
 import (
 	"context"
@@ -179,7 +179,7 @@ func (m *Manager) StopAgent(name string) error {
 	r.mu.Unlock()
 
 	// Cancelar el contexto
-	m.log.Info("stopping agent", "name", name)
+	// m.log.Info("stopping agent", "name", name)
 	if cancel != nil {
 		cancel()
 	}
@@ -189,7 +189,7 @@ func (m *Manager) StopAgent(name string) error {
 	case <-done:
 		// OK, terminó normalmente
 	case <-time.After(5 * time.Second):
-		m.log.Warn("agent stop timeout", "name", name)
+		// m.log.Warn("agent stop timeout", "name", name)
 	}
 
 	r.mu.Lock()
