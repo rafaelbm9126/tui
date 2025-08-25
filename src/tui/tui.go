@@ -1,4 +1,4 @@
-package tui
+package tuipkg
 
 import (
 	"context"
@@ -12,9 +12,19 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"main/src/bus"
+	"main/src/command"
 	"main/src/event"
 	"main/src/message"
 )
+
+type MessageList = messagepkg.MessageList
+type MessageModel = messagepkg.MessageModel
+
+type OptimizedBus = buspkg.OptimizedBus
+
+type Event = eventpkg.Event
+
+type Command = commandpkg.Command
 
 type TUI struct {
 	width       int
@@ -25,6 +35,7 @@ type TUI struct {
 	logger      *slog.Logger
 	messages    *MessageList
 	bus         *OptimizedBus
+	command     *Command
 	mdEnabled   bool
 	mdRenderer  *glamour.TermRenderer
 	mdWrapWidth int // ancho con el que se construyó el renderer
@@ -42,7 +53,12 @@ type TUI struct {
 	}
 }
 
-func NewTUI(bus *OptimizedBus, messages *MessageList, logger *slog.Logger) *TUI {
+func NewTUI(
+	bus *OptimizedBus,
+	messages *MessageList,
+	command *Command,
+	logger *slog.Logger,
+) *TUI {
 	vp := viewport.New(80, 20)
 	vp.SetContent("") // No mostrar contenido hasta salir del estado de carga
 	vp.Style = lipgloss.NewStyle().
@@ -63,12 +79,10 @@ func NewTUI(bus *OptimizedBus, messages *MessageList, logger *slog.Logger) *TUI 
 		viewport:  vp,
 		input:     ti,
 		mdEnabled: true,
-
-		logger: logger,
-
-		messages: messages,
-
-		bus: bus,
+		bus:       bus,
+		messages:  messages,
+		command:   command,
+		logger:    logger,
 	}
 
 	s := &t.styles
@@ -113,8 +127,8 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			rawText := t.input.Value()
 			text := strings.TrimSpace(rawText)
 			if text != "" {
-				msg := MessageModel{Type: Human, Text: text}
-				t.bus.Publish(EvtMessage, msg)
+				msg := MessageModel{Type: messagepkg.Human, Text: text}
+				t.bus.Publish(eventpkg.EvtMessage, msg)
 				t.input.Reset()
 				t.input.SetValue("")
 
@@ -160,9 +174,9 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		t.RenderBody()
 
 	case Event:
-		evt := msg.evt
+		evt := msg.Evt
 		switch evt.Type {
-		case EvtSystem:
+		case eventpkg.EvtSystem:
 			icmd, _ := evt.Data.(string)
 			switch icmd {
 			case "q", "quit":
@@ -170,14 +184,15 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			default:
 				panic("Command Unknown")
 			}
-		case EvtMessage:
+		case eventpkg.EvtMessage:
 			if msgData, ok := evt.Data.(MessageModel); ok {
 				switch msgData.Type {
-				case System:
+				case messagepkg.System:
 					t.messages.AddMessageSystem(msgData.Text)
-				case Human:
+				case messagepkg.Human:
 					t.messages.AddMessageHuman(msgData.Text)
-				case Assistant:
+					t.command.IsCommandThenRun(msgData.Text)
+				case messagepkg.Assistant:
 					t.messages.AddMessageAssistant(msgData.Text, msgData.From)
 				}
 			}
@@ -235,7 +250,7 @@ func (t *TUI) Program() *tea.Program {
 }
 
 func (t *TUI) RenderBody() {
-	content := t.messages.PrePrintMessages(t)
+	content := t.PrePrintMessages()
 	t.viewport.SetContent(content)
 	t.viewport.GotoBottom()
 }
@@ -267,4 +282,43 @@ func (t *TUI) MDRenderer(width int) {
 		t.mdRenderer = renderer
 		t.mdWrapWidth = width
 	}
+}
+
+func (t *TUI) PrePrintMessages() string {
+	var sb strings.Builder
+
+	for _, message := range t.messages.Messages {
+		sb.WriteString(t.DottedLine(t.width) + "\n")
+
+		// Message Header //
+		var label lipgloss.Style
+		header := message.Type.String()
+		switch message.Type {
+		case messagepkg.System:
+			label = t.styles.labelSystem
+		case messagepkg.Human:
+			label = t.styles.labelHuman
+		case messagepkg.Assistant:
+			label = t.styles.labelAssistant
+			header += " [" + message.From + "]"
+		}
+		if !message.Time.IsZero() {
+			header += " - " + message.Time.Format("15:04:05")
+		}
+		sb.WriteString(label.Render(header) + "\n")
+		// [End] Message Header //
+
+		// Message Body //
+		body := message.Text
+		if t.mdEnabled && t.mdRenderer != nil {
+			rendered, err := t.mdRenderer.Render(body)
+			if err == nil {
+				body = strings.TrimSpace(rendered)
+			}
+		}
+		sb.WriteString(t.styles.body.Render(body) + "\n")
+		// [End] Message Body //
+	}
+
+	return sb.String()
 }

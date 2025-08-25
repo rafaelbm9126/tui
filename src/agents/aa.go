@@ -1,4 +1,4 @@
-package agents
+package agentspkg
 
 import (
 	"context"
@@ -11,12 +11,23 @@ import (
 
 	"main/src/bus"
 	"main/src/command"
+	"main/src/event"
+	"main/src/message"
 )
 
+type Command = commandpkg.Command
+
+type MessageList = messagepkg.MessageList
+type MessageModel = messagepkg.MessageModel
+
+type OptimizedBus = buspkg.OptimizedBus
+
+type Event = eventpkg.Event
+
 type AAgent struct {
-	logger  *slog.Logger
-	bus     *OptimizedBus
-	command *Command
+	Logger  *slog.Logger
+	Bus     *OptimizedBus
+	Command *Command
 }
 
 type Response struct {
@@ -143,11 +154,11 @@ func (a *AAgent) Request(body string) *Response {
 }
 func (a *AAgent) Start(ctx context.Context) error {
 	payload := Payload{
-		Model:        "gpt-5",
-		Conversation: "conv_68a78b95a9548197a40a1d7fce845d2503523f864ebccb71",
+		Model:        os.Getenv("MODEL"),
+		Conversation: os.Getenv("CONVERSATION"),
 	}
 
-	ch, unsub, err := a.bus.Subscribe(EvtMessage, 64)
+	ch, unsub, err := a.Bus.Subscribe(eventpkg.EvtMessage, 64)
 	if err != nil {
 		return err
 	}
@@ -164,22 +175,22 @@ func (a *AAgent) Start(ctx context.Context) error {
 			msg, _ := evt.Data.(MessageModel)
 
 			switch msg.Type {
-			case System:
+			case messagepkg.System:
 				//
-			case Human:
-				if ok, _ := a.command.IsCommand(msg.Text); !ok {
+			case messagepkg.Human:
+				if ok, _ := a.Command.IsCommand(msg.Text); !ok {
 
 					payload.Input = msg.Text
 					response := a.Request(payload.GetBody())
 
 					message := MessageModel{
-						Type: Assistant,
+						Type: messagepkg.Assistant,
 						From: a.Name(),
 						Text: response.Output[len(response.Output)-1].Content[0].Text,
 					}
-					a.bus.Publish(EvtMessage, message)
+					a.Bus.Publish(eventpkg.EvtMessage, message)
 				}
-			case Assistant:
+			case messagepkg.Assistant:
 				//
 			}
 		}

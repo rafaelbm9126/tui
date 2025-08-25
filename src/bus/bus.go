@@ -1,4 +1,4 @@
-package bus
+package buspkg
 
 import (
 	"errors"
@@ -6,16 +6,21 @@ import (
 	"sync"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"main/src/event"
-	"main/src/tui"
 )
+
+type EventType = eventpkg.EventType
+type EventModel = eventpkg.EventModel
+type Event = eventpkg.Event
 
 // Bus define la interfaz para el sistema de comunicación pub/sub
 type Bus interface {
 	Publish(evtype EventType, data any)
-	Subscribe(evtype EventType, buf int) (<-chan Event, func(), error)
+	Subscribe(evtype EventType, buf int) (<-chan EventModel, func(), error)
 	Length(evtype EventType) int
-	RuntimeCaller(tui *TUI, evt <-chan EventModel, unsub func(), err error)
+	// RuntimeCaller(tui *TUI, evt <-chan EventModel, unsub func(), err error)
 	Close()
 }
 
@@ -155,14 +160,14 @@ func (b *OptimizedBus) Close() {
 	}
 }
 
-func (b *OptimizedBus) RuntimeCaller(tui *TUI, evt <-chan EventModel, err error) {
+func (b *OptimizedBus) RuntimeCaller(program *tea.Program, evt <-chan EventModel, err error) {
 	if err != nil {
 		return
 	}
 	go func() {
 		for evt := range evt {
-			msg := Event{evt: evt}
-			tui.Program().Send(msg)
+			msg := Event{Evt: evt}
+			program.Send(msg)
 		}
 	}()
 }

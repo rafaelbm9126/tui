@@ -4,55 +4,62 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"main/src/tui"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"main/src/agents"
 	"main/src/bus"
 	"main/src/command"
 	"main/src/config"
 	"main/src/event"
-	"main/src/logger"
 	"main/src/manager"
 	"main/src/message"
-	"main/src/tui"
-	"os"
-	"os/signal"
-	"syscall"
 )
+
+type MessageModel = messagepkg.MessageModel
 
 func main() {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	config := LoadConfig()
+	conf := configpkg.LoadConfig()
+	_ = conf
 
 	rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	ctx, cancel := context.WithCancel(rootCtx)
 
-	bus := NewMemoryBus(logger)
+	_ = cancel
+
+	bus := buspkg.NewMemoryBus(logger)
 	defer bus.Close()
 
-	mgr := NewManager(ctx, logger)
+	mgr := managerpkg.NewManager(ctx, logger)
 
-	command := NewCommand(logger, config, bus, mgr)
+	command := commandpkg.NewCommand(logger, conf, bus, mgr)
 
-	messages := NewMessageList(command)
+	_ = command
 
-	tui := NewTUI(bus, messages, logger)
+	messages := messagepkg.NewMessageList()
 
-	ev_sy, unsub_sy, err_sy := bus.Subscribe(EvtSystem, 64)
-	go bus.RuntimeCaller(tui, ev_sy, err_sy)
+	tui := tuipkg.NewTUI(bus, messages, command, logger)
+
+	ev_sy, unsub_sy, err_sy := bus.Subscribe(eventpkg.EvtSystem, 64)
+	go bus.RuntimeCaller(tui.Program(), ev_sy, err_sy)
 	defer unsub_sy()
 
-	ev_ms, unsub_ms, err_ms := bus.Subscribe(EvtMessage, 64)
-	go bus.RuntimeCaller(tui, ev_ms, err_ms)
+	ev_ms, unsub_ms, err_ms := bus.Subscribe(eventpkg.EvtMessage, 64)
+	go bus.RuntimeCaller(tui.Program(), ev_ms, err_ms)
 	defer unsub_ms()
 
-	mgr.Register(&EchoAgent{logger: logger, bus: bus, command: command}, true)
-	mgr.Register(&AAgent{logger: logger, bus: bus, command: command}, true)
+	mgr.Register(&agentspkg.EchoAgent{Logger: logger, Bus: bus, Command: command}, true)
+	mgr.Register(&agentspkg.AAgent{Logger: logger, Bus: bus, Command: command}, true)
 	// mgr.StartAll()
 	defer mgr.StopAll()
 
-	bus.Publish(EvtMessage, MessageModel{Type: System, Text: "Hello World..!"})
+	bus.Publish(eventpkg.EvtMessage, MessageModel{Type: messagepkg.System, Text: "Hello World..!"})
 
 	if _, err := tui.Run(ctx, cancel); err != nil {
 		logger.Error("Error starting TUI program", "error", err)

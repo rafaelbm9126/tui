@@ -1,19 +1,22 @@
-package agents
+package agentspkg
 
 import (
 	"context"
 	"log/slog"
+
+	"main/src/event"
+	"main/src/message"
 )
 
 type EchoAgent struct {
-	logger  *slog.Logger
-	bus     *OptimizedBus
-	command *Command
+	Logger  *slog.Logger
+	Bus     *OptimizedBus
+	Command *Command
 }
 
 func (a *EchoAgent) Name() string { return "echo" }
 func (a *EchoAgent) Start(ctx context.Context) error {
-	ch, unsub, err := a.bus.Subscribe(EvtMessage, 64)
+	ch, unsub, err := a.Bus.Subscribe(eventpkg.EvtMessage, 64)
 	if err != nil {
 		return err
 	}
@@ -30,18 +33,18 @@ func (a *EchoAgent) Start(ctx context.Context) error {
 			msg, _ := evt.Data.(MessageModel)
 
 			switch msg.Type {
-			case System:
+			case messagepkg.System:
 				//
-			case Human:
-				if ok, _ := a.command.IsCommand(msg.Text); !ok {
+			case messagepkg.Human:
+				if ok, _ := a.Command.IsCommand(msg.Text); !ok {
 					message := MessageModel{
-						Type: Assistant,
+						Type: messagepkg.Assistant,
 						From: a.Name(),
 						Text: "Echo Human: " + msg.Text,
 					}
-					a.bus.Publish(EvtMessage, message)
+					a.Bus.Publish(eventpkg.EvtMessage, message)
 				}
-			case Assistant:
+			case messagepkg.Assistant:
 				//
 			}
 		}

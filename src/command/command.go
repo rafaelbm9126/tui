@@ -1,4 +1,4 @@
-package command
+package commandpkg
 
 import (
 	"fmt"
@@ -7,21 +7,25 @@ import (
 
 	"main/src/bus"
 	"main/src/config"
+	"main/src/event"
 	"main/src/manager"
+	"main/src/message"
 )
+
+type MessageModel = messagepkg.MessageModel
 
 type Command struct {
 	logger *slog.Logger
-	config *Config
-	bus    *OptimizedBus
-	mgr    *Manager
+	config *configpkg.Config
+	bus    *buspkg.OptimizedBus
+	mgr    *managerpkg.Manager
 }
 
 func NewCommand(
 	logger *slog.Logger,
-	config *Config,
-	bus *OptimizedBus,
-	mgr *Manager,
+	config *configpkg.Config,
+	bus *buspkg.OptimizedBus,
+	mgr *managerpkg.Manager,
 ) *Command {
 	return &Command{
 		logger: logger,
@@ -65,18 +69,18 @@ func (c *Command) Execute(cmd string, args []string) {
 
 	switch cmd {
 	case "quit", "q":
-		c.bus.Publish(EvtSystem, "quit")
+		c.bus.Publish(eventpkg.EvtSystem, "quit")
 
 	case "help", "h":
-		message := MessageModel{Type: System, Text: c.config.Text["messages"]["commands"]["help"]}
-		c.bus.Publish(EvtMessage, message)
+		message := MessageModel{Type: messagepkg.System, Text: c.config.Text["messages"]["commands"]["help"]}
+		c.bus.Publish(eventpkg.EvtMessage, message)
 
 	case "status", "st":
 		agents := c.mgr.ListAgents()
 
 		if len(agents) == 0 {
-			message := MessageModel{Type: System, Text: "No hay agentes registrados"}
-			c.bus.Publish(EvtMessage, message)
+			message := MessageModel{Type: messagepkg.System, Text: "No hay agentes registrados"}
+			c.bus.Publish(eventpkg.EvtMessage, message)
 			break
 		}
 		var sb strings.Builder
@@ -99,49 +103,49 @@ func (c *Command) Execute(cmd string, args []string) {
 			sb.WriteString("\n")
 		}
 
-		message := MessageModel{Type: System, Text: sb.String()}
-		c.bus.Publish(EvtMessage, message)
+		message := MessageModel{Type: messagepkg.System, Text: sb.String()}
+		c.bus.Publish(eventpkg.EvtMessage, message)
 
 	case "start":
 		if len(args) < 1 {
-			message := MessageModel{Type: System, Text: "Uso: /start <agente>"}
-			c.bus.Publish(EvtMessage, message)
+			message := MessageModel{Type: messagepkg.System, Text: "Uso: /start <agente>"}
+			c.bus.Publish(eventpkg.EvtMessage, message)
 			break
 		}
 		name := args[0]
-		message := MessageModel{Type: System}
+		message := MessageModel{Type: messagepkg.System}
 		err := c.mgr.StartAgent(name)
 		if err != nil {
 			message.Text = "Error al iniciar " + name + ": " + err.Error()
 		} else {
 			message.Text = "Iniciando " + name
 		}
-		c.bus.Publish(EvtMessage, message)
+		c.bus.Publish(eventpkg.EvtMessage, message)
 
 	case "stop":
 		if len(args) < 1 {
-			message := MessageModel{Type: System, Text: "Uso: /stop <agente>"}
-			c.bus.Publish(EvtMessage, message)
+			message := MessageModel{Type: messagepkg.System, Text: "Uso: /stop <agente>"}
+			c.bus.Publish(eventpkg.EvtMessage, message)
 			break
 		}
 		name := args[0]
-		message := MessageModel{Type: System}
+		message := MessageModel{Type: messagepkg.System}
 		err := c.mgr.StopAgent(name)
 		if err != nil {
 			message.Text = "Error al detener " + name + ": " + err.Error()
 		} else {
 			message.Text = "Deteniendo " + name
 		}
-		c.bus.Publish(EvtMessage, message)
+		c.bus.Publish(eventpkg.EvtMessage, message)
 
 	case "restart":
 		if len(args) < 1 {
-			message := MessageModel{Type: System, Text: "Uso: /restart <agente>"}
-			c.bus.Publish(EvtMessage, message)
+			message := MessageModel{Type: messagepkg.System, Text: "Uso: /restart <agente>"}
+			c.bus.Publish(eventpkg.EvtMessage, message)
 			break
 		}
 		name := args[0]
-		message := MessageModel{Type: System}
+		message := MessageModel{Type: messagepkg.System}
 		err := c.mgr.RestartAgent(name)
 		if err != nil {
 			message.Text = "Error al reiniciar " + name + ": " + err.Error()
@@ -150,7 +154,7 @@ func (c *Command) Execute(cmd string, args []string) {
 		}
 
 	default:
-		message := MessageModel{Type: System, Text: "**Command not found**"}
-		c.bus.Publish(EvtMessage, message)
+		message := MessageModel{Type: messagepkg.System, Text: "**Command not found**"}
+		c.bus.Publish(eventpkg.EvtMessage, message)
 	}
 }

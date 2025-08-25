@@ -1,4 +1,4 @@
-package event
+package eventpkg
 
 import (
 	"time"
@@ -17,4 +17,4 @@ type EventModel struct {
 	Time time.Time
 }
 
-type Event struct{ evt EventModel }
+type Event struct{ Evt EventModel }
