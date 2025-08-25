@@ -5,11 +5,11 @@ import (
 	"log/slog"
 	"strings"
 
-	"main/src/bus"
-	"main/src/config"
-	"main/src/event"
-	"main/src/manager"
-	"main/src/message"
+	buspkg "main/src/bus"
+	configpkg "main/src/config"
+	eventpkg "main/src/event"
+	managerpkg "main/src/manager"
+	messagepkg "main/src/message"
 )
 
 type MessageModel = messagepkg.MessageModel
@@ -64,22 +64,21 @@ func (c *Command) IsCommand(text string) (bool, []string) {
 }
 
 func (c *Command) Execute(cmd string, args []string) {
-
-	_ = args
+	message := MessageModel{Type: messagepkg.System}
 
 	switch cmd {
 	case "quit", "q":
 		c.bus.Publish(eventpkg.EvtSystem, "quit")
 
 	case "help", "h":
-		message := MessageModel{Type: messagepkg.System, Text: c.config.Text["messages"]["commands"]["help"]}
+		message.Text = c.config.Text["messages"]["commands"]["help"]
 		c.bus.Publish(eventpkg.EvtMessage, message)
 
 	case "status", "st":
 		agents := c.mgr.ListAgents()
 
 		if len(agents) == 0 {
-			message := MessageModel{Type: messagepkg.System, Text: "No hay agentes registrados"}
+			message.Text = "No hay agentes registrados"
 			c.bus.Publish(eventpkg.EvtMessage, message)
 			break
 		}
@@ -103,17 +102,16 @@ func (c *Command) Execute(cmd string, args []string) {
 			sb.WriteString("\n")
 		}
 
-		message := MessageModel{Type: messagepkg.System, Text: sb.String()}
+		message.Text = sb.String()
 		c.bus.Publish(eventpkg.EvtMessage, message)
 
 	case "start":
 		if len(args) < 1 {
-			message := MessageModel{Type: messagepkg.System, Text: "Uso: /start <agente>"}
+			message.Text = "Uso: /start <agente>"
 			c.bus.Publish(eventpkg.EvtMessage, message)
 			break
 		}
 		name := args[0]
-		message := MessageModel{Type: messagepkg.System}
 		err := c.mgr.StartAgent(name)
 		if err != nil {
 			message.Text = "Error al iniciar " + name + ": " + err.Error()
@@ -124,12 +122,11 @@ func (c *Command) Execute(cmd string, args []string) {
 
 	case "stop":
 		if len(args) < 1 {
-			message := MessageModel{Type: messagepkg.System, Text: "Uso: /stop <agente>"}
+			message.Text = "Uso: /stop <agente>"
 			c.bus.Publish(eventpkg.EvtMessage, message)
 			break
 		}
 		name := args[0]
-		message := MessageModel{Type: messagepkg.System}
 		err := c.mgr.StopAgent(name)
 		if err != nil {
 			message.Text = "Error al detener " + name + ": " + err.Error()
@@ -140,12 +137,11 @@ func (c *Command) Execute(cmd string, args []string) {
 
 	case "restart":
 		if len(args) < 1 {
-			message := MessageModel{Type: messagepkg.System, Text: "Uso: /restart <agente>"}
+			message.Text = "Uso: /restart <agente>"
 			c.bus.Publish(eventpkg.EvtMessage, message)
 			break
 		}
 		name := args[0]
-		message := MessageModel{Type: messagepkg.System}
 		err := c.mgr.RestartAgent(name)
 		if err != nil {
 			message.Text = "Error al reiniciar " + name + ": " + err.Error()
@@ -154,7 +150,7 @@ func (c *Command) Execute(cmd string, args []string) {
 		}
 
 	default:
-		message := MessageModel{Type: messagepkg.System, Text: "**Command not found**"}
+		message.Text = "**Command not found**"
 		c.bus.Publish(eventpkg.EvtMessage, message)
 	}
 }

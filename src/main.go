@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
-	"main/src/tui"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"main/src/agents"
-	"main/src/bus"
-	"main/src/command"
-	"main/src/config"
-	"main/src/event"
-	"main/src/manager"
-	"main/src/message"
+	agentspkg "main/src/agents"
+	buspkg "main/src/bus"
+	commandpkg "main/src/command"
+	configpkg "main/src/config"
+	databasepkg "main/src/database"
+	eventpkg "main/src/event"
+	managerpkg "main/src/manager"
+	messagepkg "main/src/message"
+	tuipkg "main/src/tui"
 )
 
 type MessageModel = messagepkg.MessageModel
@@ -25,13 +26,14 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	conf := configpkg.LoadConfig()
-	_ = conf
 
 	rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	ctx, cancel := context.WithCancel(rootCtx)
 
-	_ = cancel
+	db, _ := databasepkg.NewDatabase(logger)
+	db.Migration()
+	defer db.Close()
 
 	bus := buspkg.NewMemoryBus(logger)
 	defer bus.Close()
@@ -40,9 +42,7 @@ func main() {
 
 	command := commandpkg.NewCommand(logger, conf, bus, mgr)
 
-	_ = command
-
-	messages := messagepkg.NewMessageList()
+	messages := messagepkg.NewMessageList(db)
 
 	tui := tuipkg.NewTUI(bus, messages, command, logger)
 
@@ -56,7 +56,6 @@ func main() {
 
 	mgr.Register(&agentspkg.EchoAgent{Logger: logger, Bus: bus, Command: command}, true)
 	mgr.Register(&agentspkg.AAgent{Logger: logger, Bus: bus, Command: command}, true)
-	// mgr.StartAll()
 	defer mgr.StopAll()
 
 	bus.Publish(eventpkg.EvtMessage, MessageModel{Type: messagepkg.System, Text: "Hello World..!"})

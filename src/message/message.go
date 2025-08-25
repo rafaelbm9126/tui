@@ -2,6 +2,8 @@ package messagepkg
 
 import (
 	"time"
+
+	databasepkg "main/src/database"
 )
 
 type MessageType int
@@ -28,11 +30,13 @@ type MessageModel struct {
 }
 
 type MessageList struct {
+	db       *databasepkg.Database
 	Messages []MessageModel
 }
 
-func NewMessageList() *MessageList {
+func NewMessageList(db *databasepkg.Database) *MessageList {
 	return &MessageList{
+		db:       db,
 		Messages: []MessageModel{},
 	}
 }
@@ -46,18 +50,37 @@ func (ml *MessageList) AddMessageSystem(text string) {
 }
 
 func (ml *MessageList) AddMessageHuman(text string) {
-	ml.Messages = append(ml.Messages, MessageModel{
+	msg := MessageModel{
 		Type: Human,
 		Text: text,
+		From: "Human",
 		Time: time.Now(),
+	}
+
+	ml.Messages = append(ml.Messages, msg)
+
+	ml.db.CreateMessage(databasepkg.MessageData{
+		Type:      int(msg.Type),
+		Owner:     msg.From,
+		Text:      msg.Text,
+		CreatedAt: msg.Time,
 	})
 }
 
 func (ml *MessageList) AddMessageAssistant(text string, from string) {
-	ml.Messages = append(ml.Messages, MessageModel{
+	msg := MessageModel{
 		Type: Assistant,
 		From: from,
 		Text: text,
 		Time: time.Now(),
+	}
+
+	ml.Messages = append(ml.Messages, msg)
+
+	ml.db.CreateMessage(databasepkg.MessageData{
+		Type:      int(msg.Type),
+		Owner:     msg.From,
+		Text:      msg.Text,
+		CreatedAt: msg.Time,
 	})
 }

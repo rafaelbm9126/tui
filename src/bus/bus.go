@@ -8,7 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"main/src/event"
+	eventpkg "main/src/event"
 )
 
 type EventType = eventpkg.EventType

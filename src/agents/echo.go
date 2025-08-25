@@ -4,8 +4,8 @@ import (
 	"context"
 	"log/slog"
 
-	"main/src/event"
-	"main/src/message"
+	eventpkg "main/src/event"
+	messagepkg "main/src/message"
 )
 
 type EchoAgent struct {
@@ -15,6 +15,7 @@ type EchoAgent struct {
 }
 
 func (a *EchoAgent) Name() string { return "echo" }
+
 func (a *EchoAgent) Start(ctx context.Context) error {
 	ch, unsub, err := a.Bus.Subscribe(eventpkg.EvtMessage, 64)
 	if err != nil {

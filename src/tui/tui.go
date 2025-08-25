@@ -11,10 +11,10 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 
-	"main/src/bus"
-	"main/src/command"
-	"main/src/event"
-	"main/src/message"
+	buspkg "main/src/bus"
+	commandpkg "main/src/command"
+	eventpkg "main/src/event"
+	messagepkg "main/src/message"
 )
 
 type MessageList = messagepkg.MessageList

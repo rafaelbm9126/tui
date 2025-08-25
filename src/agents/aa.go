@@ -9,10 +9,10 @@ import (
 	"os"
 	"strings"
 
-	"main/src/bus"
-	"main/src/command"
-	"main/src/event"
-	"main/src/message"
+	buspkg "main/src/bus"
+	commandpkg "main/src/command"
+	eventpkg "main/src/event"
+	messagepkg "main/src/message"
 )
 
 type Command = commandpkg.Command
@@ -115,6 +115,7 @@ func (p *Payload) GetBody() string {
 }
 
 func (a *AAgent) Name() string { return "aa" }
+
 func (a *AAgent) Request(body string) *Response {
 	oai_url := os.Getenv("OPENAI_API_URL")
 	oai_key := os.Getenv("OPENAI_API_KEY")
@@ -152,6 +153,7 @@ func (a *AAgent) Request(body string) *Response {
 
 	return response
 }
+
 func (a *AAgent) Start(ctx context.Context) error {
 	payload := Payload{
 		Model:        os.Getenv("MODEL"),
