@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -26,11 +27,16 @@ type Event = eventpkg.Event
 
 type Command = commandpkg.Command
 
+const (
+	LEFT_WIDTH_PERCENTAGE = 0.6 // 60% del ancho
+)
+
 type TUI struct {
 	width       int
 	height      int
 	viewport    viewport.Model
 	input       textinput.Model
+	spinner     spinner.Model
 	program     *tea.Program
 	logger      *slog.Logger
 	messages    *MessageList
@@ -41,6 +47,8 @@ type TUI struct {
 	mdWrapWidth int // ancho con el que se construyó el renderer
 	history     []string
 	histIndex   int
+	showAlert   bool
+	textAlert   string
 	styles      struct {
 		header         lipgloss.Style
 		labelSystem    lipgloss.Style
@@ -50,6 +58,7 @@ type TUI struct {
 		dots           lipgloss.Style
 		help           lipgloss.Style
 		inputBox       lipgloss.Style
+		alert          lipgloss.Style
 	}
 }
 
@@ -62,7 +71,9 @@ func NewTUI(
 	vp := viewport.New(80, 20)
 	vp.SetContent("") // No mostrar contenido hasta salir del estado de carga
 	vp.Style = lipgloss.NewStyle().
-		Margin(0, 5, 0, 5)
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#8A7DFC")).
+		Margin(0, 0, 0, 2)
 
 	ti := textinput.New()
 	ti.Placeholder = "Escribe un mensaje o comando (/help)"
@@ -71,6 +82,10 @@ func NewTUI(
 	ti.SetValue("")
 	ti.Focus()
 
+	sp := spinner.New()
+	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFC400"))
+	sp.Spinner = spinner.Dot
+
 	logger.Info("Initializing TUI")
 
 	t := &TUI{
@@ -78,11 +93,13 @@ func NewTUI(
 		height:    20,
 		viewport:  vp,
 		input:     ti,
+		spinner:   sp,
 		mdEnabled: true,
 		bus:       bus,
 		messages:  messages,
 		command:   command,
 		logger:    logger,
+		showAlert: false,
 	}
 
 	s := &t.styles
@@ -96,9 +113,10 @@ func NewTUI(
 	s.help = lipgloss.NewStyle().Foreground(lipgloss.Color("#666"))
 	s.inputBox = lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#8a7dfc")).
-		Padding(0, 1).
-		Margin(0, 5, 0, 5)
+		BorderForeground(lipgloss.Color("#8A7DFC")).
+		Margin(0, 2, 0, 2).
+		Padding(0, 1)
+	s.alert = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFC400"))
 
 	t.program = tea.NewProgram(t, tea.WithAltScreen())
 
@@ -108,7 +126,10 @@ func NewTUI(
 func (t *TUI) Init() tea.Cmd {
 	t.MDRenderer(t.viewport.Width)
 
-	return tea.Batch(tea.EnterAltScreen)
+	return tea.Batch(
+		tea.EnterAltScreen,
+		t.spinner.Tick,
+	)
 }
 
 func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -166,10 +187,11 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		inputHeight := 3 // borde + entrada + borde
 		headerHeight := 1
 		footerHeight := 1
+
 		viewportHeight := t.height - inputHeight - headerHeight - footerHeight
-		t.viewport.Width = t.width - 14 // -14 por los bordes
+		t.viewport.Width = int(float64(t.width) * LEFT_WIDTH_PERCENTAGE)
 		t.viewport.Height = viewportHeight
-		t.input.Width = t.width - 14 // -14 por los bordes
+		t.input.Width = int(float64(t.width)*LEFT_WIDTH_PERCENTAGE) - 11 // -5 ajuste para igualar al viewport
 
 		t.RenderBody()
 
@@ -179,11 +201,20 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case eventpkg.EvtSystem:
 			icmd, _ := evt.Data.(string)
 			switch icmd {
+
 			case "q", "quit":
 				cmds = append(cmds, tea.Quit)
+
+			case "loading":
+				t.textAlert = t.styles.alert.
+					Align(lipgloss.Right).
+					Render("loading")
+				t.showAlert = !t.showAlert
+
 			default:
 				panic("Command Unknown")
 			}
+
 		case eventpkg.EvtMessage:
 			if msgData, ok := evt.Data.(MessageModel); ok {
 				switch msgData.Type {
@@ -198,6 +229,11 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		t.RenderBody()
+
+	default:
+		var cmd tea.Cmd
+		t.spinner, cmd = t.spinner.Update(msg)
+		return t, cmd
 	}
 
 	t.input, cmd = t.input.Update(msg)
@@ -210,23 +246,26 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (t *TUI) View() string {
-	header := t.styles.header.
-		Margin(0, 5, 0, 5).
-		Render(" Agentes TUI ") + "  " + t.styles.help.
-		Margin(0, 5, 0, 5).
-		Render("(Enter: enviar · /help · /md on|off · ↑↓ historial · PgUp/PgDn scroll · Esc/Ctrl+C salir)")
-
-	footer := t.styles.help.
-		Margin(0, 5, 0, 5).
-		Render(" ESC/Ctrl+C: Salir • PgUp/PgDn: Desplazar • ↑/↓: Historial")
-
 	input := t.styles.inputBox.Render(t.input.View())
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		t.viewport.View(),
-		footer,
-		input,
+	nvp := viewport.New(
+		int(float64(t.width)*(1-LEFT_WIDTH_PERCENTAGE)),
+		t.viewport.Height+1,
+	)
+	nvp.SetContent("")
+	nvp.Style = lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#8A7DFC")).
+		Margin(1, 0, 0, 0)
+
+	return lipgloss.JoinHorizontal(lipgloss.Left,
+		lipgloss.JoinVertical(lipgloss.Left,
+			HeaderViewTui(t), // header
+			t.viewport.View(),
+			FooterViewTui(t), // footer
+			input,
+		),
+		nvp.View(),
 	)
 }
 
@@ -287,8 +326,10 @@ func (t *TUI) MDRenderer(width int) {
 func (t *TUI) PrePrintMessages() string {
 	var sb strings.Builder
 
-	for _, message := range t.messages.Messages {
-		sb.WriteString(t.DottedLine(t.width) + "\n")
+	for index, message := range t.messages.Messages {
+		if index > 0 {
+			sb.WriteString(t.DottedLine(t.width) + "\n")
+		}
 
 		// Message Header //
 		var label lipgloss.Style

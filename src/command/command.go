@@ -1,7 +1,6 @@
 package commandpkg
 
 import (
-	"fmt"
 	"log/slog"
 	"strings"
 
@@ -82,27 +81,8 @@ func (c *Command) Execute(cmd string, args []string) {
 			c.bus.Publish(eventpkg.EvtMessage, message)
 			break
 		}
-		var sb strings.Builder
-		sb.WriteString("# Estado de agentes\n\n")
-		for _, ag := range agents {
-			sb.WriteString("- **")
-			sb.WriteString(ag.Name)
-			sb.WriteString("**: ")
-			sb.WriteString(ag.State)
-			if ag.Restarts > 0 {
-				sb.WriteString(" (")
-				sb.WriteString(fmt.Sprintf("%d", ag.Restarts))
-				sb.WriteString(" reinicios)")
-			}
-			if ag.LastErr != nil {
-				sb.WriteString("\n  _Error: ")
-				sb.WriteString(ag.LastErr.Error())
-				sb.WriteString("_")
-			}
-			sb.WriteString("\n")
-		}
 
-		message.Text = sb.String()
+		message.Text = TableStateAgents(agents)
 		c.bus.Publish(eventpkg.EvtMessage, message)
 
 	case "start":

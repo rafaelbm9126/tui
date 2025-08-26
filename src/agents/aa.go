@@ -134,6 +134,8 @@ func (a *AAgent) Request(body string) *Response {
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", oai_key))
 
+	a.Bus.Publish(eventpkg.EvtSystem, "loading")
+
 	res, err := client.Do(req)
 	if err != nil {
 		panic(err)
@@ -150,6 +152,8 @@ func (a *AAgent) Request(body string) *Response {
 	if res.StatusCode != http.StatusOK {
 		panic(res.Status)
 	}
+
+	a.Bus.Publish(eventpkg.EvtSystem, "loading")
 
 	return response
 }
