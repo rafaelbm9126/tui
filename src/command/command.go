@@ -9,6 +9,7 @@ import (
 	eventpkg "main/src/event"
 	managerpkg "main/src/manager"
 	messagepkg "main/src/message"
+	toolspkg "main/src/tools"
 )
 
 type MessageModel = messagepkg.MessageModel
@@ -70,7 +71,12 @@ func (c *Command) Execute(cmd string, args []string) {
 		c.bus.Publish(eventpkg.EvtSystem, "quit")
 
 	case "help", "h":
-		message.Text = c.config.Text["messages"]["commands"]["help"]
+		help := c.config.Config.Messages.Commands.Help
+		list := c.config.Config.Messages.Commands.List
+		message.Text = help + "\n" + strings.Join(
+			toolspkg.FormatTableRows(list, "- ", "\n"),
+			"",
+		)
 		c.bus.Publish(eventpkg.EvtMessage, message)
 
 	case "status", "st":

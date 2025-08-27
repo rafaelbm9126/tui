@@ -14,8 +14,10 @@ import (
 
 	buspkg "main/src/bus"
 	commandpkg "main/src/command"
+	configpkg "main/src/config"
 	eventpkg "main/src/event"
 	messagepkg "main/src/message"
+	toolspkg "main/src/tools"
 )
 
 type MessageList = messagepkg.MessageList
@@ -43,13 +45,17 @@ type TUI struct {
 	bus         *OptimizedBus
 	command     *Command
 	mdEnabled   bool
-	mdRenderer  *glamour.TermRenderer
-	mdWrapWidth int // ancho con el que se construyó el renderer
+	mdRendererA *glamour.TermRenderer // with Margin
+	mdRendererB *glamour.TermRenderer // with out Margin
+	mdWrapWidth int                   // ancho con el que se construyó el renderer
 	history     []string
 	histIndex   int
 	showAlert   bool
 	textAlert   string
-	styles      struct {
+
+	suggestions []string
+
+	styles struct {
 		header         lipgloss.Style
 		labelSystem    lipgloss.Style
 		labelHuman     lipgloss.Style
@@ -63,16 +69,22 @@ type TUI struct {
 }
 
 func NewTUI(
+	conf *configpkg.Config,
 	bus *OptimizedBus,
 	messages *MessageList,
 	command *Command,
 	logger *slog.Logger,
 ) *TUI {
+	toolspkg.LoadSuggestions(conf)
+
 	vp := viewport.New(80, 20)
 	vp.SetContent("") // No mostrar contenido hasta salir del estado de carga
 	vp.Style = lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#8A7DFC")).
+		BorderTop(true).
+		BorderBottom(true).
+		BorderLeft(true).
 		Margin(0, 0, 0, 2)
 
 	ti := textinput.New()
@@ -89,17 +101,18 @@ func NewTUI(
 	logger.Info("Initializing TUI")
 
 	t := &TUI{
-		width:     80,
-		height:    20,
-		viewport:  vp,
-		input:     ti,
-		spinner:   sp,
-		mdEnabled: true,
-		bus:       bus,
-		messages:  messages,
-		command:   command,
-		logger:    logger,
-		showAlert: false,
+		width:       80,
+		height:      20,
+		viewport:    vp,
+		input:       ti,
+		spinner:     sp,
+		mdEnabled:   true,
+		bus:         bus,
+		messages:    messages,
+		command:     command,
+		logger:      logger,
+		showAlert:   false,
+		suggestions: []string{},
 	}
 
 	s := &t.styles
@@ -180,6 +193,11 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		/**
+		 * COMMAND SUGGESTIONS
+		 */
+		t.suggestions = toolspkg.Suggestions(msg.Type, t.input.Value(), msg.Runes, '/')
+
 	case tea.WindowSizeMsg:
 		t.width = msg.Width
 		t.height = msg.Height
@@ -188,7 +206,7 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		headerHeight := 1
 		footerHeight := 1
 
-		viewportHeight := t.height - inputHeight - headerHeight - footerHeight
+		viewportHeight := t.height - headerHeight - inputHeight - footerHeight - 5
 		t.viewport.Width = int(float64(t.width) * LEFT_WIDTH_PERCENTAGE)
 		t.viewport.Height = viewportHeight
 		t.input.Width = int(float64(t.width)*LEFT_WIDTH_PERCENTAGE) - 11 // -5 ajuste para igualar al viewport
@@ -254,9 +272,29 @@ func (t *TUI) View() string {
 	)
 	nvp.SetContent("")
 	nvp.Style = lipgloss.NewStyle().
+		Background(lipgloss.Color("#8A7DFC")).
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#8A7DFC")).
+		BorderTop(true).
+		BorderBottom(true).
+		BorderRight(true).
 		Margin(1, 0, 0, 0)
+
+	// SUGGESTIONS //
+	nvp1 := viewport.New(
+		int(float64(t.width)*LEFT_WIDTH_PERCENTAGE),
+		4,
+	)
+	nvp1.SetContent("")
+	nvp1.Style = lipgloss.NewStyle().
+		// Background(lipgloss.Color("#8A7DFC")).
+		Margin(0, 2, 0, 2)
+	suggestions := strings.Join(t.suggestions, "")
+	rendered, err := t.mdRendererB.Render(suggestions)
+	if err == nil {
+		nvp1.SetContent(strings.TrimSpace(rendered))
+	}
+	// --- //
 
 	return lipgloss.JoinHorizontal(lipgloss.Left,
 		lipgloss.JoinVertical(lipgloss.Left,
@@ -264,6 +302,7 @@ func (t *TUI) View() string {
 			t.viewport.View(),
 			FooterViewTui(t), // footer
 			input,
+			nvp1.View(),
 		),
 		nvp.View(),
 	)
@@ -303,22 +342,31 @@ func (t *TUI) DottedLine(width int) string {
 
 func (t *TUI) MDRenderer(width int) {
 	if !t.mdEnabled {
-		t.mdRenderer = nil
+		t.mdRendererA = nil
+		t.mdRendererB = nil
 		t.mdWrapWidth = 0
 		return
 	}
 
 	// Crea el renderer solo si ha cambiado el ancho o no existe
-	if t.mdRenderer == nil || t.mdWrapWidth != width {
-		renderer, err := glamour.NewTermRenderer(
+	if t.mdRendererA == nil || t.mdWrapWidth != width {
+		rendererA, errA := glamour.NewTermRenderer(
 			glamour.WithAutoStyle(),
-			glamour.WithWordWrap(width-14), // -14 por el margen izquierdo
+			/**
+			 * TODO: define size viewport adjustment
+			 */
+			glamour.WithWordWrap(width-14),
 		)
-		if err != nil {
+		rendererB, errB := glamour.NewTermRenderer(
+			glamour.WithAutoStyle(),
+			glamour.WithWordWrap(0),
+		)
+		if errA != nil || errB != nil {
 			t.mdEnabled = false
 			return
 		}
-		t.mdRenderer = renderer
+		t.mdRendererA = rendererA
+		t.mdRendererB = rendererB
 		t.mdWrapWidth = width
 	}
 }
@@ -351,8 +399,8 @@ func (t *TUI) PrePrintMessages() string {
 
 		// Message Body //
 		body := message.Text
-		if t.mdEnabled && t.mdRenderer != nil {
-			rendered, err := t.mdRenderer.Render(body)
+		if t.mdEnabled && t.mdRendererA != nil {
+			rendered, err := t.mdRendererA.Render(body)
 			if err == nil {
 				body = strings.TrimSpace(rendered)
 			}

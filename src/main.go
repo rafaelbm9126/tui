@@ -44,7 +44,7 @@ func main() {
 
 	messages := messagepkg.NewMessageList(db)
 
-	tui := tuipkg.NewTUI(bus, messages, command, logger)
+	tui := tuipkg.NewTUI(conf, bus, messages, command, logger)
 
 	ev_sy, unsub_sy, err_sy := bus.Subscribe(eventpkg.EvtSystem, 64)
 	go bus.RuntimeCaller(tui.Program(), ev_sy, err_sy)

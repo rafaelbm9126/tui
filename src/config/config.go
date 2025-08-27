@@ -8,7 +8,14 @@ import (
 )
 
 type Config struct {
-	Text map[string]map[string]map[string]string `yaml:"config"`
+	Config struct {
+		Messages struct {
+			Commands struct {
+				Help string     `yaml:"help"`
+				List [][]string `yaml:"list"`
+			} `yaml:"commands"`
+		} `yaml:"messages"`
+	} `yaml:"config"`
 }
 
 func GetEnv() {
