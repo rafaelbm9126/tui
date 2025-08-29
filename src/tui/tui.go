@@ -31,6 +31,9 @@ type Command = commandpkg.Command
 
 const (
 	LEFT_WIDTH_PERCENTAGE = 0.6 // 60% del ancho
+	inputHeight           = 3   // borde + entrada + borde
+	headerHeight          = 1
+	footerHeight          = 1
 )
 
 type TUI struct {
@@ -53,7 +56,7 @@ type TUI struct {
 	showAlert   bool
 	textAlert   string
 
-	suggestions []string
+	listItem *ListItem
 
 	styles struct {
 		header         lipgloss.Style
@@ -101,18 +104,18 @@ func NewTUI(
 	logger.Info("Initializing TUI")
 
 	t := &TUI{
-		width:       80,
-		height:      20,
-		viewport:    vp,
-		input:       ti,
-		spinner:     sp,
-		mdEnabled:   true,
-		bus:         bus,
-		messages:    messages,
-		command:     command,
-		logger:      logger,
-		showAlert:   false,
-		suggestions: []string{},
+		width:     80,
+		height:    20,
+		viewport:  vp,
+		input:     ti,
+		spinner:   sp,
+		mdEnabled: true,
+		bus:       bus,
+		messages:  messages,
+		command:   command,
+		logger:    logger,
+		showAlert: false,
+		listItem:  NewListItem(0, 0),
 	}
 
 	s := &t.styles
@@ -151,6 +154,8 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds []tea.Cmd
 	)
 
+	listItemFocus := len(t.listItem.items) > 0
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -158,58 +163,66 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, tea.Quit)
 
 		case tea.KeyEnter:
-			rawText := t.input.Value()
-			text := strings.TrimSpace(rawText)
-			if text != "" {
-				msg := MessageModel{Type: messagepkg.Human, Text: text}
-				t.bus.Publish(eventpkg.EvtMessage, msg)
-				t.input.Reset()
-				t.input.SetValue("")
-
-				if len(t.history) == 0 || t.history[len(t.history)-1] != text {
-					t.history = append(t.history, text)
+			choise := t.listItem.SelectedItem()
+			if len(choise) > 0 {
+				// Selected item //
+				t.input.SetValue(choise + " ")
+				t.listItem.Clear()
+				t.input.CursorEnd()
+			} else {
+				rawText := t.input.Value()
+				text := strings.TrimSpace(rawText)
+				if text != "" {
+					msg := MessageModel{Type: messagepkg.Human, Text: text}
+					t.bus.Publish(eventpkg.EvtMessage, msg)
+					t.input.Reset()
+					t.input.SetValue("")
+					if len(t.history) == 0 || t.history[len(t.history)-1] != text {
+						t.history = append(t.history, text)
+					}
+					t.histIndex = len(t.history)
 				}
-				t.histIndex = len(t.history)
 			}
 
 		case tea.KeyUp:
-			// Navega por el historial hacia arriba
-			if t.histIndex > 0 {
-				t.histIndex--
-				t.input.SetValue(t.history[t.histIndex])
-				t.input.CursorEnd()
+			if !listItemFocus {
+				// Navega por el historial hacia arriba
+				if t.histIndex > 0 {
+					t.histIndex--
+					t.input.SetValue(t.history[t.histIndex])
+					t.input.CursorEnd()
+				}
 			}
 
 		case tea.KeyDown:
-			// Navega por el historial hacia abajo
-			if t.histIndex < len(t.history) {
-				t.histIndex++
-				if t.histIndex == len(t.history) {
-					t.input.SetValue("")
-				} else {
-					t.input.SetValue(t.history[t.histIndex])
+			if !listItemFocus {
+				// Navega por el historial hacia abajo
+				if t.histIndex < len(t.history) {
+					t.histIndex++
+					if t.histIndex == len(t.history) {
+						t.input.SetValue("")
+					} else {
+						t.input.SetValue(t.history[t.histIndex])
+					}
+					t.input.CursorEnd()
 				}
-				t.input.CursorEnd()
 			}
 		}
 
 		/**
 		 * COMMAND SUGGESTIONS
 		 */
-		t.suggestions = toolspkg.Suggestions(msg.Type, t.input.Value(), msg.Runes, '/')
+		t.listItem.GetSuggestions(msg.Type, t.input.Value(), msg.Runes)
 
 	case tea.WindowSizeMsg:
 		t.width = msg.Width
 		t.height = msg.Height
 
-		inputHeight := 3 // borde + entrada + borde
-		headerHeight := 1
-		footerHeight := 1
-
-		viewportHeight := t.height - headerHeight - inputHeight - footerHeight - 5
+		viewportHeight := t.height - headerHeight - inputHeight - footerHeight
 		t.viewport.Width = int(float64(t.width) * LEFT_WIDTH_PERCENTAGE)
 		t.viewport.Height = viewportHeight
 		t.input.Width = int(float64(t.width)*LEFT_WIDTH_PERCENTAGE) - 11 // -5 ajuste para igualar al viewport
+		t.listItem.SetWidth(t.input.Width)
 
 		t.RenderBody()
 
@@ -260,6 +273,9 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	t.viewport, cmd = t.viewport.Update(msg)
 	cmds = append(cmds, cmd)
 
+	t.listItem.list, cmd = t.listItem.list.Update(msg)
+	cmds = append(cmds, cmd)
+
 	return t, tea.Batch(cmds...)
 }
 
@@ -281,28 +297,22 @@ func (t *TUI) View() string {
 		Margin(1, 0, 0, 0)
 
 	// SUGGESTIONS //
-	nvp1 := viewport.New(
-		int(float64(t.width)*LEFT_WIDTH_PERCENTAGE),
-		4,
-	)
-	nvp1.SetContent("")
-	nvp1.Style = lipgloss.NewStyle().
-		// Background(lipgloss.Color("#8A7DFC")).
-		Margin(0, 2, 0, 2)
-	suggestions := strings.Join(t.suggestions, "")
-	rendered, err := t.mdRendererB.Render(suggestions)
-	if err == nil {
-		nvp1.SetContent(strings.TrimSpace(rendered))
+	t.listItem.ShowItems(t.mdRendererB.Render)
+	adjust := 0
+	if len(t.listItem.items) > 0 {
+		adjust = 9
 	}
+	t.viewport.Height = t.height - headerHeight - inputHeight - footerHeight - adjust
+	t.listItem.SetHeight(adjust)
 	// --- //
 
 	return lipgloss.JoinHorizontal(lipgloss.Left,
 		lipgloss.JoinVertical(lipgloss.Left,
-			HeaderViewTui(t), // header
-			t.viewport.View(),
-			FooterViewTui(t), // footer
-			input,
-			nvp1.View(),
+			HeaderViewTui(t),           // header
+			t.viewport.View(),          // body
+			t.listItem.ShowListItems(), // suggestions
+			FooterViewTui(t),           // footer
+			input,                      // input
 		),
 		nvp.View(),
 	)
