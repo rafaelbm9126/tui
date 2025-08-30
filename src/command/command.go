@@ -6,32 +6,41 @@ import (
 
 	buspkg "main/src/bus"
 	configpkg "main/src/config"
+	databasepkg "main/src/database"
 	eventpkg "main/src/event"
 	managerpkg "main/src/manager"
 	messagepkg "main/src/message"
+	modelpkg "main/src/model"
 	toolspkg "main/src/tools"
 )
 
-type MessageModel = messagepkg.MessageModel
+type MessageModel = modelpkg.MessageModel
+type ThreadModel = modelpkg.ThreadModel
 
 type Command struct {
-	logger *slog.Logger
-	config *configpkg.Config
-	bus    *buspkg.OptimizedBus
-	mgr    *managerpkg.Manager
+	logger   *slog.Logger
+	config   *configpkg.Config
+	bus      *buspkg.OptimizedBus
+	db       *databasepkg.Database
+	mgr      *managerpkg.Manager
+	messages *messagepkg.MessageList
 }
 
 func NewCommand(
 	logger *slog.Logger,
 	config *configpkg.Config,
 	bus *buspkg.OptimizedBus,
+	db *databasepkg.Database,
 	mgr *managerpkg.Manager,
+	messages *messagepkg.MessageList,
 ) *Command {
 	return &Command{
-		logger: logger,
-		config: config,
-		bus:    bus,
-		mgr:    mgr,
+		logger:   logger,
+		config:   config,
+		bus:      bus,
+		db:       db,
+		mgr:      mgr,
+		messages: messages,
 	}
 }
 
@@ -64,13 +73,16 @@ func (c *Command) IsCommand(text string) (bool, []string) {
 }
 
 func (c *Command) Execute(cmd string, args []string) {
-	message := MessageModel{Type: messagepkg.System}
+	message := MessageModel{
+		Type:   modelpkg.TySystem,
+		Source: modelpkg.ScSystem,
+	}
 
 	switch cmd {
-	case "quit", "q":
+	case "q":
 		c.bus.Publish(eventpkg.EvtSystem, "quit")
 
-	case "help", "h":
+	case "h":
 		help := c.config.Config.Messages.Commands.Help
 		list := c.config.Config.Messages.Commands.List
 		message.Text = help + "\n" + strings.Join(
@@ -79,7 +91,13 @@ func (c *Command) Execute(cmd string, args []string) {
 		)
 		c.bus.Publish(eventpkg.EvtMessage, message)
 
-	case "status", "st":
+	case "c":
+		c.messages.Messages = []MessageModel{}
+
+	case "th":
+		ThreadCommand(c, args)
+
+	case "st":
 		agents := c.mgr.ListAgents()
 
 		if len(agents) == 0 {

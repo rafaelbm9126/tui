@@ -40,9 +40,9 @@ func main() {
 
 	mgr := managerpkg.NewManager(ctx, logger)
 
-	command := commandpkg.NewCommand(logger, conf, bus, mgr)
-
 	messages := messagepkg.NewMessageList(db)
+
+	command := commandpkg.NewCommand(logger, conf, bus, db, mgr, messages)
 
 	tui := tuipkg.NewTUI(conf, bus, messages, command, logger)
 
@@ -57,8 +57,6 @@ func main() {
 	mgr.Register(&agentspkg.EchoAgent{Logger: logger, Bus: bus, Command: command}, true)
 	mgr.Register(&agentspkg.AAgent{Logger: logger, Bus: bus, Command: command}, true)
 	defer mgr.StopAll()
-
-	bus.Publish(eventpkg.EvtMessage, MessageModel{Type: messagepkg.System, Text: "Hello World..!"})
 
 	if _, err := tui.Run(ctx, cancel); err != nil {
 		logger.Error("Error starting TUI program", "error", err)

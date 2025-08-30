@@ -5,7 +5,7 @@ import (
 	"log/slog"
 
 	eventpkg "main/src/event"
-	messagepkg "main/src/message"
+	modelpkg "main/src/model"
 )
 
 type EchoAgent struct {
@@ -34,18 +34,23 @@ func (a *EchoAgent) Start(ctx context.Context) error {
 			msg, _ := evt.Data.(MessageModel)
 
 			switch msg.Type {
-			case messagepkg.System:
+			case modelpkg.TySystem:
 				//
-			case messagepkg.Human:
+			case modelpkg.TyText:
 				if ok, _ := a.Command.IsCommand(msg.Text); !ok {
 					message := MessageModel{
-						Type: messagepkg.Assistant,
-						From: a.Name(),
-						Text: "Echo Human: " + msg.Text,
+						/**
+						 * TODO: add thread_id
+						 */
+						ThreadId:  "",
+						Type:      modelpkg.TyText,
+						Source:    modelpkg.ScAssistant,
+						WrittenBy: a.Name(),
+						Text:      "Echo Human: " + msg.Text,
 					}
 					a.Bus.Publish(eventpkg.EvtMessage, message)
 				}
-			case messagepkg.Assistant:
+			case modelpkg.TyCommand:
 				//
 			}
 		}

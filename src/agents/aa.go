@@ -12,13 +12,12 @@ import (
 	buspkg "main/src/bus"
 	commandpkg "main/src/command"
 	eventpkg "main/src/event"
-	messagepkg "main/src/message"
+	modelpkg "main/src/model"
 )
 
 type Command = commandpkg.Command
 
-type MessageList = messagepkg.MessageList
-type MessageModel = messagepkg.MessageModel
+type MessageModel = modelpkg.MessageModel
 
 type OptimizedBus = buspkg.OptimizedBus
 
@@ -181,22 +180,27 @@ func (a *AAgent) Start(ctx context.Context) error {
 			msg, _ := evt.Data.(MessageModel)
 
 			switch msg.Type {
-			case messagepkg.System:
+			case modelpkg.TySystem:
 				//
-			case messagepkg.Human:
+			case modelpkg.TyText:
 				if ok, _ := a.Command.IsCommand(msg.Text); !ok {
 
 					payload.Input = msg.Text
 					response := a.Request(payload.GetBody())
 
 					message := MessageModel{
-						Type: messagepkg.Assistant,
-						From: a.Name(),
-						Text: response.Output[len(response.Output)-1].Content[0].Text,
+						/**
+						 * TODO: add thread_id
+						 */
+						ThreadId:  "",
+						Type:      modelpkg.TyText,
+						Source:    modelpkg.ScAssistant,
+						WrittenBy: a.Name(),
+						Text:      response.Output[len(response.Output)-1].Content[0].Text,
 					}
 					a.Bus.Publish(eventpkg.EvtMessage, message)
 				}
-			case messagepkg.Assistant:
+			case modelpkg.TyCommand:
 				//
 			}
 		}

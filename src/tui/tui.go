@@ -17,6 +17,7 @@ import (
 	configpkg "main/src/config"
 	eventpkg "main/src/event"
 	messagepkg "main/src/message"
+	modelpkg "main/src/model"
 	toolspkg "main/src/tools"
 )
 
@@ -81,7 +82,7 @@ func NewTUI(
 	toolspkg.LoadSuggestions(conf)
 
 	vp := viewport.New(80, 20)
-	vp.SetContent("") // No mostrar contenido hasta salir del estado de carga
+	vp.SetContent("")
 	vp.Style = lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#8A7DFC")).
@@ -173,7 +174,11 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				rawText := t.input.Value()
 				text := strings.TrimSpace(rawText)
 				if text != "" {
-					msg := MessageModel{Type: messagepkg.Human, Text: text}
+					msg := MessageModel{
+						Type:   modelpkg.TyText,
+						Source: modelpkg.ScHuman,
+						Text:   text,
+					}
 					t.bus.Publish(eventpkg.EvtMessage, msg)
 					t.input.Reset()
 					t.input.SetValue("")
@@ -248,14 +253,24 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case eventpkg.EvtMessage:
 			if msgData, ok := evt.Data.(MessageModel); ok {
-				switch msgData.Type {
-				case messagepkg.System:
-					t.messages.AddMessageSystem(msgData.Text)
-				case messagepkg.Human:
-					t.messages.AddMessageHuman(msgData.Text)
-					t.command.IsCommandThenRun(msgData.Text)
-				case messagepkg.Assistant:
-					t.messages.AddMessageAssistant(msgData.Text, msgData.From)
+				switch msgData.Source {
+				case modelpkg.ScSystem:
+					t.messages.AddMessage(msgData)
+				case modelpkg.ScHuman:
+					isCmd := t.command.IsCommandThenRun(msgData.Text)
+					if isCmd {
+						msgData.Type = modelpkg.TyCommand
+					}
+					t.messages.AddMessage(msgData)
+				case modelpkg.ScAssistant:
+					/**
+					 * TODO: review assistant executor comand
+					 */
+					// isCmd := t.command.IsCommandThenRun(msgData.Text)
+					// if isCmd {
+					// 	msgData.Type = modelpkg.TyCommand
+					// }
+					t.messages.AddMessage(msgData)
 				}
 			}
 		}
@@ -302,7 +317,7 @@ func (t *TUI) View() string {
 	if len(t.listItem.items) > 0 {
 		adjust = 9
 	}
-	t.viewport.Height = t.height - headerHeight - inputHeight - footerHeight - adjust
+	t.viewport.Height = t.height - headerHeight - inputHeight - footerHeight - adjust - 1
 	t.listItem.SetHeight(adjust)
 	// --- //
 
@@ -391,18 +406,18 @@ func (t *TUI) PrePrintMessages() string {
 
 		// Message Header //
 		var label lipgloss.Style
-		header := message.Type.String()
-		switch message.Type {
-		case messagepkg.System:
+		header := message.Source.String()
+		switch message.Source {
+		case modelpkg.ScSystem:
 			label = t.styles.labelSystem
-		case messagepkg.Human:
+		case modelpkg.ScHuman:
 			label = t.styles.labelHuman
-		case messagepkg.Assistant:
+		case modelpkg.ScAssistant:
 			label = t.styles.labelAssistant
-			header += " [" + message.From + "]"
+			header += " [" + message.WrittenBy + "]"
 		}
-		if !message.Time.IsZero() {
-			header += " - " + message.Time.Format("15:04:05")
+		if !message.CreatedAt.IsZero() {
+			header += " - " + message.CreatedAt.Format("15:04:05")
 		}
 		sb.WriteString(label.Render(header) + "\n")
 		// [End] Message Header //
