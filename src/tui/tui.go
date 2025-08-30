@@ -237,8 +237,7 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case eventpkg.EvtSystem:
 			icmd, _ := evt.Data.(string)
 			switch icmd {
-
-			case "q", "quit":
+			case "quit":
 				cmds = append(cmds, tea.Quit)
 
 			case "loading":
@@ -257,11 +256,13 @@ func (t *TUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case modelpkg.ScSystem:
 					t.messages.AddMessage(msgData)
 				case modelpkg.ScHuman:
-					isCmd := t.command.IsCommandThenRun(msgData.Text)
+					isCmd, showMsg := t.command.IsCommandThenRun(msgData.Text)
 					if isCmd {
 						msgData.Type = modelpkg.TyCommand
 					}
-					t.messages.AddMessage(msgData)
+					if showMsg {
+						t.messages.AddMessage(msgData)
+					}
 				case modelpkg.ScAssistant:
 					/**
 					 * TODO: review assistant executor comand

@@ -10,10 +10,11 @@ import (
 	toolspkg "main/src/tools"
 )
 
-func ThreadCommand(c *Command, args []string) {
+func ThreadCommand(c *Command, args []string) bool {
 	message := MessageModel{
 		Type:   modelpkg.TySystem,
 		Source: modelpkg.ScSystem,
+		Text:   "",
 	}
 	c.messages.Threads, _ = c.db.ListThreads()
 
@@ -24,12 +25,14 @@ func ThreadCommand(c *Command, args []string) {
 			CreatedAt: time.Now(),
 		})
 		message.Text = "Nuevo Thread [" + thread.Id + "] " + args[1]
+		c.messages.Messages = []MessageModel{}
+
 	case "-l":
 		list := [][]string{}
 		for idx, thread := range c.messages.Threads {
 			list = append(list, []string{strconv.Itoa(idx + 1), thread.Id, thread.Name})
 		}
-		message.Text = "# Lista de flags disponibles\n"
+		message.Text = "# Lista de threads\n"
 		message.Text += toolspkg.TableStatGeneral([]string{"#", "ID", "Nombre"}, list)
 
 	case "-u":
@@ -42,15 +45,24 @@ func ThreadCommand(c *Command, args []string) {
 		thread.Name = strings.Join(args[2:], " ")
 		c.db.UpdateThread(thread)
 		message.Text = "Update Thread [" + thread.Id + "] " + args[1]
+
 	case "-s":
 		ok, idx := ThreadCommandValidation(2, args, c.messages.Threads)
+		all := false
 		if !ok {
-			message.Text = "Uso: `/th` -s [index]"
+			message.Text = "Uso: `/th` -s [index] (-all)"
 			break
+		}
+		if len(args) > 2 && args[2] == "-all" {
+			all = true
 		}
 		thread := c.messages.Threads[idx-1]
 		c.messages.Thread = &thread
-		message.Text = "Select Thread [" + thread.Id + "] " + args[1]
+		c.messages.Messages, _ = c.db.ListMessageByThreadId(thread.Id, all)
+
+		// no show command //
+		return false
+
 	case "-d":
 		ok, idx := ThreadCommandValidation(2, args, c.messages.Threads)
 		if !ok {
@@ -60,11 +72,17 @@ func ThreadCommand(c *Command, args []string) {
 		thread := c.messages.Threads[idx-1]
 		c.db.DeleteThread(thread)
 		message.Text = "Delete Thread [" + thread.Id + "] " + args[1]
+
 	default:
 		message.Text = "Flag no reconocido"
 	}
 
-	c.bus.Publish(eventpkg.EvtMessage, message)
+	if len(message.Text) > 0 {
+		c.bus.Publish(eventpkg.EvtMessage, message)
+	}
+
+	// show command //
+	return true
 }
 
 func ThreadCommandValidation(arg int, args []string, Threads []ThreadModel) (bool, int) {

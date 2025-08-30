@@ -149,7 +149,9 @@ func (a *AAgent) Request(body string) *Response {
 	}
 
 	if res.StatusCode != http.StatusOK {
-		panic(res.Status)
+		a.Logger.Error("Failed to request", "status", res.Status)
+		// panic(res.Status)
+		return nil
 	}
 
 	a.Bus.Publish(eventpkg.EvtSystem, "loading")
@@ -185,8 +187,16 @@ func (a *AAgent) Start(ctx context.Context) error {
 			case modelpkg.TyText:
 				if ok, _ := a.Command.IsCommand(msg.Text); !ok {
 
+					a.Logger.Info("Received text message")
 					payload.Input = msg.Text
 					response := a.Request(payload.GetBody())
+
+					/**
+					 * TODO: add error control
+					 */
+					if response == nil {
+						return nil
+					}
 
 					message := MessageModel{
 						/**

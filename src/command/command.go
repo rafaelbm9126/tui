@@ -1,7 +1,9 @@
 package commandpkg
 
 import (
+	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 
 	buspkg "main/src/bus"
@@ -44,17 +46,19 @@ func NewCommand(
 	}
 }
 
-func (c *Command) IsCommandThenRun(text string) bool {
+func (c *Command) IsCommandThenRun(text string) (bool, bool) {
 	isCmd, parts := c.IsCommand(text)
 	if !isCmd || len(parts) == 0 {
-		return false
+		// no command - show message //
+		return false, true
 	}
 
 	cmdName := strings.TrimPrefix(parts[0], "/")
 	args := parts[1:]
 
-	c.Execute(cmdName, args)
-	return true
+	save := c.Execute(cmdName, args)
+	// command - show message?? //
+	return true, save
 }
 
 func (c *Command) IsCommand(text string) (bool, []string) {
@@ -72,7 +76,7 @@ func (c *Command) IsCommand(text string) (bool, []string) {
 	return true, parts
 }
 
-func (c *Command) Execute(cmd string, args []string) {
+func (c *Command) Execute(cmd string, args []string) bool {
 	message := MessageModel{
 		Type:   modelpkg.TySystem,
 		Source: modelpkg.ScSystem,
@@ -93,9 +97,11 @@ func (c *Command) Execute(cmd string, args []string) {
 
 	case "c":
 		c.messages.Messages = []MessageModel{}
+		// no show command //
+		return false
 
 	case "th":
-		ThreadCommand(c, args)
+		return ThreadCommand(c, args)
 
 	case "st":
 		agents := c.mgr.ListAgents()
@@ -106,7 +112,20 @@ func (c *Command) Execute(cmd string, args []string) {
 			break
 		}
 
-		message.Text = TableStateAgents(agents)
+		list := [][]string{}
+		for idx, agent := range agents {
+			state := agent.State
+			if agent.Restarts > 0 {
+				state += fmt.Sprintf(" (%d reinicios)", agent.Restarts)
+			}
+			if agent.LastErr != nil {
+				state += " ⚠️ " + agent.LastErr.Error()
+			}
+			list = append(list, []string{strconv.Itoa(idx + 1), agent.Name, state})
+		}
+		message.Text = "# Lista de agentes\n"
+		message.Text += toolspkg.TableStatGeneral([]string{"#", "Nombre", "Estado"}, list)
+
 		c.bus.Publish(eventpkg.EvtMessage, message)
 
 	case "start":
@@ -157,4 +176,7 @@ func (c *Command) Execute(cmd string, args []string) {
 		message.Text = "**Command not found**"
 		c.bus.Publish(eventpkg.EvtMessage, message)
 	}
+
+	// show command //
+	return true
 }

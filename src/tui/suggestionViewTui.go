@@ -42,6 +42,7 @@ func NewListItem(width, height int) *ListItem {
 	li.list.SetShowPagination(false)
 	li.list.SetShowFilter(false)
 	li.list.SetShowHelp(false)
+	li.list.DisableQuitKeybindings()
 
 	return &li
 }

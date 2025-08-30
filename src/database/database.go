@@ -2,6 +2,7 @@ package databasepkg
 
 import (
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -176,6 +177,56 @@ func (db *Database) CreateMessage(msg MessageModel) (string, error) {
 		return "", err
 	}
 	return id, nil
+}
+
+func (db *Database) ListMessageByThreadId(
+	threadId string,
+	all bool,
+) ([]MessageModel, error) {
+	full := ""
+
+	if !all {
+		full = "AND type = 1"
+	}
+
+	rows, err := db.conn.Query(fmt.Sprintf(`
+		SELECT
+			id, type, source, written_by, text, thread_id, created_at
+			FROM messages
+			WHERE thread_id = ? %s
+			ORDER BY created_at ASC
+		`, full), threadId)
+	if err != nil {
+		db.logger.Error("Error Database [ListMessageByThreadId]", "msg", err.Error())
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []MessageModel
+	for rows.Next() {
+		var msg MessageModel
+		var createdAt string
+
+		if err := rows.Scan(&msg.Id, &msg.Type, &msg.Source, &msg.WrittenBy, &msg.Text, &msg.ThreadId, &createdAt); err != nil {
+			db.logger.Error("Error Database [ListMessageByThreadId]", "msg", err.Error())
+			return nil, err
+		}
+
+		parsedTime, err := time.Parse(time.RFC3339, createdAt)
+		if err != nil {
+			db.logger.Error("Error Database [ListMessageByThreadId] parsing time", "msg", err.Error())
+			return nil, err
+		}
+		msg.CreatedAt = parsedTime
+
+		messages = append(messages, msg)
+	}
+	if err := rows.Err(); err != nil {
+		db.logger.Error("Error Database [ListMessageByThreadId]", "msg", err.Error())
+		return nil, err
+	}
+
+	return messages, nil
 }
 
 func (db *Database) Close() error {

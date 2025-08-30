@@ -41,6 +41,7 @@ func (mf MessageSource) String() string {
 }
 
 type MessageModel struct {
+	Id        string
 	Type      MessageType
 	Source    MessageSource
 	WrittenBy string

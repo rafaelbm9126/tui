@@ -24,7 +24,7 @@ func TableStatGeneral(headers []string, rows [][]string) string {
 			fmt.Sprintf(
 				"%-*s |",
 				maxLenCol[idxh],
-				header,
+				fmt.Sprintf("**%s**", header),
 			),
 		)
 	}
