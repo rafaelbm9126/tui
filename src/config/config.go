@@ -11,8 +11,15 @@ type Config struct {
 	Config struct {
 		Messages struct {
 			Commands struct {
-				Help string     `yaml:"help"`
-				List [][]string `yaml:"list"`
+				Title      string `yaml:"title"`
+				Collection []struct {
+					Command     string `yaml:"command"`
+					Description string `yaml:"description"`
+					Variants    []struct {
+						Command     string `yaml:"command"`
+						Description string `yaml:"description"`
+					} `yaml:"variants"`
+				} `yaml:"collection"`
 			} `yaml:"commands"`
 		} `yaml:"messages"`
 	} `yaml:"config"`

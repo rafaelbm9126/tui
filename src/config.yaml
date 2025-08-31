@@ -1,20 +1,42 @@
 config:
   messages:
     commands:
-      help: |
+      title: |
         # Comandos disponibles
-      list:
-        - - "`/h`"
-          - "muestra esta ayuda"
-        - - "`/st`"
-          - "muestra estado de agentes"
-        - - "`/start`"
-          - "inicia un agente `/start <agente>`"
-        - - "`/stop`"
-          - "detiene un agente `/stop <agente>`"
-        - - "`/restart`"
-          - "reinicia un agente `/restart <agente>`"
-        - - "`/md`"
-          - "activa/desactiva markdown `/md on|off`"
-        - - "`/q`"
-          - "sale del programa"
+      collection:
+        - command: "/h"
+          description: "Show text help for all commands"
+          variants:
+            - command: "/h [command]"
+              description: "Show text help for specific command"
+        - command: "/c"
+          description: "Clear view chat"
+          variants: []
+        - command: "/th"
+          description: "Operation about threads `/th [flag]`"
+          variants:
+            - command: "/th -c [NAME-THREAD]"
+              description: "Create a new thread"
+            - command: "/th -l"
+              description: "List all threads"
+            - command: "/th -u [IDX] [NEW-NAME-THREAD]"
+              description: "Update name of thread"
+            - command: "/th -s [IDX]"
+              description: "Select a thread"
+            - command: "/th -d [IDX]"
+              description: "Delete a thread"
+        - command: "/st"
+          description: "Show agents status"
+          variants: []
+        - command: "/start"
+          description: "Start an agent `/start <agent>`"
+          variants: []
+        - command: "/stop"
+          description: "Stop an agent `/stop <agent>`"
+          variants: []
+        - command: "/restart"
+          description: "Restart an agent `/restart <agent>`"
+          variants: []
+        - command: "/q"
+          description: "Quit the program"
+          variants: []

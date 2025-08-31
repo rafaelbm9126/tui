@@ -87,12 +87,16 @@ func (c *Command) Execute(cmd string, args []string) bool {
 		c.bus.Publish(eventpkg.EvtSystem, "quit")
 
 	case "h":
-		help := c.config.Config.Messages.Commands.Help
-		list := c.config.Config.Messages.Commands.List
-		message.Text = help + "\n" + strings.Join(
-			toolspkg.FormatTableRows(list, "- ", "\n"),
-			"",
-		)
+		commands := c.config.Config.Messages.Commands
+		list := [][]string{}
+		for _, item := range commands.Collection {
+			list = append(list, []string{item.Command, item.Description})
+			for _, variant := range item.Variants {
+				list = append(list, []string{variant.Command, variant.Description})
+			}
+		}
+		message.Text = commands.Title + "\n"
+		message.Text += toolspkg.TableStatGeneral([]string{"Command", "Description"}, list)
 		c.bus.Publish(eventpkg.EvtMessage, message)
 
 	case "c":
